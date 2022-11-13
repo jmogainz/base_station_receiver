@@ -33,7 +33,7 @@ find_package(action_msgs REQUIRED)
 include_directories(include)
 
 install(
-  DIRECTORY base_station_receiver launch
+  DIRECTORY base_station_receiver launch scripts
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -46,6 +46,8 @@ install(PROGRAMS
   base_station_receiver/lotus_waypoint_follower.py
   base_station_receiver/bs_nav_receiver.py
   base_station_receiver/bs_rtcm_receiver.py
+  scripts/send_waypoints.py
+  scripts/send_rtcm_data.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
