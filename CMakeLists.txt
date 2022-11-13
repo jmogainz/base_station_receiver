@@ -33,7 +33,7 @@ find_package(action_msgs REQUIRED)
 include_directories(include)
 
 install(
-  DIRECTORY base_station_receiver follow_waypoints
+  DIRECTORY base_station_receiver launch
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -42,8 +42,10 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python executables
 install(PROGRAMS
-  base_station_receiver/follow_waypoints/lotus_waypoint_follower.py
-  base_station_receiver/waypoint_receiver.py
+  base_station_receiver/robot_navigator.py
+  base_station_receiver/lotus_waypoint_follower.py
+  base_station_receiver/bs_nav_receiver.py
+  base_station_receiver/bs_rtcm_receiver.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
