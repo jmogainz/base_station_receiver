@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from copy import deepcopy
 from robot_navigator import BasicNavigator, NavigationResult
+import multiprocessing
 from lotus_waypoint_follower import goToWaypoints
 from std_msgs.msg import Float64MultiArray
 from geographiclib.geodesic import Geodesic
@@ -68,7 +69,8 @@ class BSNavReceiver(Node):
                 if msg.get_type() == 'GPS_RTCM_DATA':
                     rclpy.loginfo(self.get_logger(), "Received RTCM data")
                     # handle rtcm data in separate process so that it does not block
-                    
+                    rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
+                    rtcm_process.start()
 
             if self.nav_running and self.navigator.isNavComplete():
                 result = self.navigator.getResult()
@@ -82,7 +84,8 @@ class BSNavReceiver(Node):
                     print('Waypoint navigation failed...')
                     self.nav_running = False
 
-    def handle_rtcm_data()
+    def handle_rtcm_data():
+        
 
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
