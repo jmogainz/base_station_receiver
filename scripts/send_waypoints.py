@@ -16,15 +16,16 @@ while True:
             file = open(file_path,"read")
  
     if cmd == "start":
-        None
+        master.mav.named_value_int_send(time.time(),"nav_start",1)
         
     if cmd == "clear":
-       
-        None
+       master.mav.named_value_int_send(time.time(),"clear_wps",1)
+
     if cmd == "stop"
-        None
+        master.mav.named_value_int_send(time.time(),"nav_stop",1)
     
-    if cmd == ""
+    if cmd == "return":
+        master.mav.named_value_int_send(time.time(),"return_home",1)
     
     if cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
