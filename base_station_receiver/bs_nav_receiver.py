@@ -59,7 +59,17 @@ class BSNavReceiver(Node):
                             self.current_waypoints.clear()
                         else:
                             rclpy.loginfo(self.get_logger(), "Cannot clear waypoints while navigating")
-            
+                    if msg.name == 'return_home' and msg.value == 1:
+                        if not self.nav_running:
+                            rclpy.loginfo(self.get_logger(), "Returning to home")
+                            self.navigator.goToPose(self.initial_pose)
+                        else:
+                            rclpy.loginfo(self.get_logger(), "Cannot return home while navigating")
+                if msg.get_type() == 'GPS_RTCM_DATA':
+                    rclpy.loginfo(self.get_logger(), "Received RTCM data")
+                    # handle rtcm data in separate process so that it does not block
+                    
+
             if self.nav_running and self.navigator.isNavComplete():
                 result = self.navigator.getResult()
                 if result == NavigationResult.SUCCEEDED:
@@ -72,10 +82,12 @@ class BSNavReceiver(Node):
                     print('Waypoint navigation failed...')
                     self.nav_running = False
 
+    def handle_rtcm_data()
+
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.createPose(0, 0)
+        self.initial_pose = self.createPose(0, 0)
         self.navigator.setInitialPose(0, 0)
 
     def createPose(self, x, y):
