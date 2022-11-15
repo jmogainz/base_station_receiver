@@ -11,6 +11,7 @@ from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import NavSatFix
 import math
+import serial
 
 class BSNavReceiver(Node):
 
@@ -84,8 +85,15 @@ class BSNavReceiver(Node):
                     print('Waypoint navigation failed...')
                     self.nav_running = False
 
-    def handle_rtcm_data():
-        
+    def handle_rtcm_data(rtcm_msg):
+        # send rtcm_msg over uart to /dev/ttyUSB1
+        uart_rtcm = serial.Serial('/dev/ttyUSB1', 38400)
+        # set configuration
+        uart_rtcm.bytesize = serial.EIGHTBITS
+        uart_rtcm.parity = serial.PARITY_NONE
+        uart_rtcm.stopbits = serial.STOPBITS_ONE
+        uart_rtcm.write(rtcm_msg)
+        uart_rtcm.close()
 
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
