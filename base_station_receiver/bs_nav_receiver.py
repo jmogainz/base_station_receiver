@@ -16,7 +16,6 @@ class BSNavReceiver(Node):
     def __init__(self):
         super().__init__('bs__nav_receiver')
 
-        self.waypoints_pub = self.create_publisher(Float64MultiArray, 'waypoints', 1)
         self.gps_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_callback, 1)
 
         self.master = mavutil.mavlink_connection('/dev/ttyUSB0', baud=57600)
@@ -33,7 +32,8 @@ class BSNavReceiver(Node):
         # master.wait_heartbeat()
         # print("Heartbeat from system (system %u component %u)" % (master.target_system, master.target_system))
 
-            msg = self.master.recv_match(blocking=True)
+            msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY', 'NAMED_VALUE_INT'], 
+                                         blocking=True)
             
             if msg.get_type() != 'BAD_DATA':
                 if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
@@ -43,12 +43,13 @@ class BSNavReceiver(Node):
                     rclpy.loginfo(self.get_logger(), "Received waypoints: %s" % len(self.current_waypoints))
                 if msg.get_type() == 'NAMED_VALUE_INT':
                     if msg.name == 'nav_start' and msg.value == 1:
-                        rclpy.loginfo(self.get_logger(), "All waypoints received, starting navigation")
-                        if not self.nav_running:
-                            self.nav_running = True
-                            goToWaypoints(self.current_waypoints, self.navigator)
-                        else:
-                            rclpy.loginfo(self.get_logger(), "Navigation already launched")
+                        if self.current_waypoints:
+                            rclpy.loginfo(self.get_logger(), "All waypoints received, starting navigation")
+                            if not self.nav_running:
+                                self.nav_running = True
+                                goToWaypoints(self.current_waypoints, self.navigator)
+                            else:
+                                rclpy.loginfo(self.get_logger(), "Navigation already launched")
                     if msg.name == 'nav_stop' and msg.value == 1:
                         rclpy.loginfo(self.get_logger(), "Stopping navigation")
                         self.navigator.cancelNav()

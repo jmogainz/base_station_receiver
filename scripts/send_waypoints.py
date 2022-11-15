@@ -1,16 +1,22 @@
+"""
+User interface for sending messages to UGV
+"""
 from pymavlink import mavutil
 import time
 
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
 
-timestamp = 0
 while True:
-    time.sleep(0.2)
-    # master.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_GCS, mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
+    cmd = input("Enter UGV command >  ")
 
-    # send lat long waypoint
-    master.mav.gps_input_send(timestamp, 1, 0, 0, 0, 2, 33, 88, 0, 1, 1, 
-                                0, 0, 0, 0, 0, 0, 0)
-    
-    timestamp += 1
-    
+    if cmd == "start":
+        None
+    if cmd == "help":
+        print("\nwaypoints: prompts waypoint file input")
+        print("start: starts navigation to waypoints")
+        print("stop: stops navigation to waypoints")
+        print("return: returns to home")
+        print("clear: clears waypoints")
+    else:
+        print("\n[ERROR] Invalid command. Enter help for available commands.\n")
+        
