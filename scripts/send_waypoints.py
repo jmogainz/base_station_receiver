@@ -5,6 +5,7 @@ from pymavlink import mavutil
 import time
 import os
 
+os.environ['MAVLINK20'] ='1'
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
 
 while True:
@@ -40,21 +41,32 @@ while True:
                     longs = [int(long[i]) for i in range(0, len(long))]
                     lats = [int(lat[i]) for i in range(0, len(lat))]
 
+                    longs.extend([0] * (58 - len(longs)))
+
+                    lats.extend([0] * (58 - len(lats)))
+
+                    print(longs)
+                    print(len(lats))
+
                     # send sequence is long, lat
                     master.mav.debug_float_array_send(
                         int(time.time()),
                         long_name,
                         wp_count,
-                        bytearray(longs)
+                        data = bytearray(longs)
                     )
                     master.mav.debug_float_array_send(
                         int(time.time()),
                         lat_name,
                         wp_count,
-                        bytearray(lats)
+                        data = bytearray(lats)
                     )
+
+
+
+
                     wp_count += 1
-    if cmd == "start":
+    elif cmd == "start":
         master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
     elif cmd == "clear":
        master.mav.named_value_int_send(int(time.time()), b"clear_wps", 1)
