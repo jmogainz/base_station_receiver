@@ -26,10 +26,12 @@ while True:
 
                     # check long and lat for negative sign
                     if long[0] == '-':
+                        long = long[1:]
                         long_name = b"-"
                     if lat[0] == '-':
+                        lat = lat[1:]
                         lat_name = b"-"
-                        
+
                     # round everything to 7 decimal places
                     long = str(round(float(long), 7))
                     lat = str(round(float(lat), 7))
