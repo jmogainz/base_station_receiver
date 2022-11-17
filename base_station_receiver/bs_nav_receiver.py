@@ -51,6 +51,10 @@ class BSNavReceiver(Node):
                     long = ''.join([chr(int(i)) for i in long])
                     lat = ''.join([chr(int(i)) for i in lat])
 
+                    # there is a trailing backslash on the longitude string, remove it and everything after it
+                    long = long.split('\\')[0]
+                    lat = lat.split('\\')[0]
+
                     long = float(long)
                     lat = float(lat)
 
