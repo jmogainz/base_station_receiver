@@ -18,18 +18,29 @@ while True:
         if(os.path.exists(file_path)):
             with open(file_path, 'r') as f:
                 waypoints = f.readlines()
+                wp_count = 1
                 for waypoint in waypoints:
-                    long1, lat1 = waypoint.split(',')
-                    long2 = float(long1)
-                    lat2 = float(lat1)
-                    long = long2*10000000
-                    lat = lat2*10000000
+                    long, lat = waypoint.split(',')
+                    # round everything to 7 decimal places
+                    long = str(round(float(long), 7))
+                    lat = str(round(float(lat), 7))
+                    long = long.replace('.', '')
+                    lat = lat.replace('.', '')
+                    longs = [int(long[i]) for i in range(0, len(long))]
+                    lats = [int(lat[i]) for i in range(0, len(lat))]
                     master.mav.debug_float_array_send(
-                        round(time.time()),
-                        b"waypoints",
-                        0,
-                        bytearray([int(long), int(lat)])
+                        int(time.time()),
+                        b"long",
+                        wp_count,
+                        bytearray(longs)
                     )
+                    master.mav.debug_float_array_send(
+                        int(time.time()),
+                        b"lat",
+                        wp_count,
+                        bytearray(lats)
+                    )
+                    wp_count += 1
     if cmd == "start":
         master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
     elif cmd == "clear":

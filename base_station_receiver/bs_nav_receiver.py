@@ -43,7 +43,15 @@ class BSNavReceiver(Node):
             
             if msg.get_type() != 'BAD_DATA':
                 if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
-                    x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, msg.data[1], msg.data[0]) # data is sent as long, lat
+                    # longitude value is too large to be sent, it is split into list of digits
+                    long = msg.data
+                    lat = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True).data
+                    long = int(''.join(str(e) for e in long))
+                    lat = int(''.join(str(e) for e in lat))
+                    long = float(long / 10000000, 7)
+                    lat = float(lat / 10000000, 7)
+                    
+                    x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, long, lat) # data is sent as long, lat
                     ros_pose = self.createPose(x, y) 
                     self.current_wayoints.append(deepcopy(ros_pose))
                     self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
