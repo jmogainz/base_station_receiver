@@ -22,19 +22,19 @@ while True:
                     long, lat = waypoint.split(',')
                     master.mav.debug_float_array_send(
                         time.time(),
-                        'waypoints',
+                        b"waypoints",
                         0,
-                        [float(long), float(lat)]
+                        bytearray([float(long), float(lat)])
                     )
     if cmd == "start":
-        master.mav.named_value_int_send(time.time(), "nav_start", 1)
-    if cmd == "clear":
-       master.mav.named_value_int_send(time.time(), "clear_wps", 1)
-    if cmd == "stop":
-        master.mav.named_value_int_send(time.time(), "nav_stop", 1)
-    if cmd == "return":
-        master.mav.named_value_int_send(time.time(), "return_home", 1)
-    if cmd == "help":
+        master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
+    elif cmd == "clear":
+       master.mav.named_value_int_send(int(time.time()), b"clear_wps", 1)
+    elif cmd == "stop":
+        master.mav.named_value_int_send(int(time.time()), b"nav_stop", 1)
+    elif cmd == "return":
+        master.mav.named_value_int_send(int(time.time()), b"return_home", 1)
+    elif cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
         print("start: starts navigation to waypoints")
         print("stop: stops navigation to waypoints")

@@ -60,7 +60,7 @@ class BasicNavigator(Node):
                                                      'navigate_through_poses')
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.follow_waypoints_client = ActionClient(self, FollowWaypoints, 'follow_waypoints')
-        self.compute_path_to_pose_client = ActionClient(self, ComputePathToPose, 'compu   te_path_to_pose')
+        self.compute_path_to_pose_client = ActionClient(self, ComputePathToPose, 'compute_path_to_pose')
         self.compute_path_through_poses_client = ActionClient(self, ComputePathThroughPoses,
                                                               'compute_path_through_poses')
         self.localization_pose_sub = self.create_subscription(PoseWithCovarianceStamped,

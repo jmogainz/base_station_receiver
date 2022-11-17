@@ -45,9 +45,7 @@ install(PROGRAMS
   base_station_receiver/robot_navigator.py
   base_station_receiver/lotus_waypoint_follower.py
   base_station_receiver/bs_nav_receiver.py
-  base_station_receiver/bs_rtcm_receiver.py
   scripts/send_waypoints.py
-  scripts/send_rtcm_data.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

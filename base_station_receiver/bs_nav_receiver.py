@@ -14,8 +14,8 @@ from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import NavSatFix
 import math
 import serial
-import cv2
-from threading import timer
+# import cv2
+# from threading import timer
 
 class BSNavReceiver(Node):
 
@@ -49,6 +49,7 @@ class BSNavReceiver(Node):
                     rclpy.loginfo(self.get_logger(), "Received waypoints: %s" % len(self.current_waypoints))
                 if msg.get_type() == 'NAMED_VALUE_INT':
                     if msg.name == 'nav_start' and msg.value == 1:
+                        rclpy.loginfo(self.get_logger(), "Received start navigation command")
                         if self.current_waypoints:
                             rclpy.loginfo(self.get_logger(), "All waypoints received, starting navigation")
                             if not self.nav_running:
@@ -102,8 +103,8 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.initial_pose = self.createPose(0, 0)
-        self.navigator.setInitialPose(0, 0)
+        self.initial_pose = self.createPose(0.0, 0.0)
+        self.navigator.setInitialPose(self.initial_pose)
 
     def createPose(self, x, y):
         pose = PoseStamped()
@@ -130,14 +131,20 @@ class BSNavReceiver(Node):
 
         return x, y
     
-    def capture_photo_and_send_photo(self):
+    # def capture_photo_and_send_photo(self):
         
-        photo = cv2.VideoCapture(0)
-        _, frame = photo.read()
-        self.master.mav.mavlink_data_stream_type(5)
-        self.master.mav.data_transmission_handshake()
-        msg = self.master.recv_match(type=['DATA_TRANSMISSION_HANDSHAKE')
-        master.mav.encapsulated_data_send()
+    #     photo = cv2.VideoCapture(0)
+    #     _, frame = photo.read()
+    #     self.master.mav.mavlink_data_stream_type(5)
+    #     self.master.mav.data_transmission_handshake()
+    #     msg = self.master.recv_match(type=['DATA_TRANSMISSION_HANDSHAKE')
+    #     self.master.mav.data_transmission_handshake()
+
+    #     image_string = base64.b64decode(frame)
+
+    #    print(image_string) 
+
+    #     master.mav.encapsulated_data_send()
 
         
 
@@ -152,9 +159,9 @@ def main(args=None):
 
     bs_nav_receiver.receiveCmds()
 
-    self.timer.start()
+    # self.timer.start()
     
-    self.timer() = Timer(10,self.capture_photo_and_send_photo)
+    # self.timer() = Timer(10,self.capture_photo_and_send_photo)
 
 
 
