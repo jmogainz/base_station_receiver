@@ -21,43 +21,29 @@ while True:
                 waypoints = f.readlines()
                 wp_count = 1
                 for waypoint in waypoints:
-                    long_name = b"+"
-                    lat_name = b"+"
                     long, lat = waypoint.split(',')
-
-                    # check long and lat for negative sign
-                    if long[0] == '-':
-                        long = long[1:]
-                        long_name = b"-"
-                    if lat[0] == '-':
-                        lat = lat[1:]
-                        lat_name = b"-"
 
                     # round everything to 7 decimal places
                     long = str(round(float(long), 7))
                     lat = str(round(float(lat), 7))
-                    long = long.replace('.', '')
-                    lat = lat.replace('.', '')
-                    longs = [int(long[i]) for i in range(0, len(long))]
-                    lats = [int(lat[i]) for i in range(0, len(lat))]
+
+                    # convert string to list of ascii values
+                    longs = [ord(c) for c in long]
+                    lats = [ord(c) for c in lat]
 
                     longs.extend([0] * (58 - len(longs)))
-
                     lats.extend([0] * (58 - len(lats)))
-
-                    print(longs)
-                    print(len(lats))
 
                     # send sequence is long, lat
                     master.mav.debug_float_array_send(
                         int(time.time()),
-                        long_name,
+                        b"long",
                         wp_count,
                         data = bytearray(longs)
                     )
                     master.mav.debug_float_array_send(
                         int(time.time()),
-                        lat_name,
+                        b"lat",
                         wp_count,
                         data = bytearray(lats)
                     )

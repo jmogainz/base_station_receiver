@@ -44,14 +44,15 @@ class BSNavReceiver(Node):
             if msg.get_type() != 'BAD_DATA':
                 if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
                     # longitude value is too large to be sent, it is split into list of digits
-                    long = msg.data
+                    long = list(msg.data)
                     lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
-                    lat = lat_msg.data
+                    lat = list(lat_msg.data)
 
-                    long = int(''.join(str(e) for e in long))
-                    lat = int(''.join(str(e) for e in lat))
-                    long = float(long / 10000000, 7)
-                    lat = float(lat / 10000000, 7)
+                    long = ''.join([chr(int(i)) for i in long])
+                    lat = ''.join([chr(int(i)) for i in lat])
+
+                    long = float(long)
+                    lat = float(lat)
 
                     # check signedness
                     if str(msg.name) == "-":
