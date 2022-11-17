@@ -46,34 +46,34 @@ class BSNavReceiver(Node):
                     x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, msg.data[1], msg.data[0]) # data is sent as long, lat
                     ros_pose = self.createPose(x, y) 
                     self.current_wayoints.append(deepcopy(ros_pose))
-                    rclpy.loginfo(self.get_logger(), "Received waypoints: %s" % len(self.current_waypoints))
+                    self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                 if msg.get_type() == 'NAMED_VALUE_INT':
                     if msg.name == 'nav_start' and msg.value == 1:
-                        rclpy.loginfo(self.get_logger(), "Received start navigation command")
+                        self.get_logger().info("Received start navigation command")
                         if self.current_waypoints:
-                            rclpy.loginfo(self.get_logger(), "All waypoints received, starting navigation")
+                            self.get_logger().info("All waypoints received, starting navigation")
                             if not self.nav_running:
                                 self.nav_running = True
                                 goToWaypoints(self.current_waypoints, self.navigator)
                             else:
-                                rclpy.loginfo(self.get_logger(), "Navigation already launched")
+                                self.get_logger().info("Navigation already launched")
                     if msg.name == 'nav_stop' and msg.value == 1:
-                        rclpy.loginfo(self.get_logger(), "Stopping navigation")
+                        self.get_logger().info("Stopping navigation")
                         self.navigator.cancelNav()
                     if msg.name == 'clear_wps' and msg.value == 1:
                         if not self.nav_running:
-                            rclpy.loginfo(self.get_logger(), "Clearing waypoints")
+                            self.get_logger().info("Clearing waypoints")
                             self.current_waypoints.clear()
                         else:
-                            rclpy.loginfo(self.get_logger(), "Cannot clear waypoints while navigating")
+                            self.get_logger().info("Cannot clear waypoints while navigating")
                     if msg.name == 'return_home' and msg.value == 1:
                         if not self.nav_running:
-                            rclpy.loginfo(self.get_logger(), "Returning to home")
+                            self.get_logger().info("Returning to home")
                             self.navigator.goToPose(self.initial_pose)
                         else:
-                            rclpy.loginfo(self.get_logger(), "Cannot return home while navigating")
+                            self.get_logger().info("Cannot return home while navigating")
                 if msg.get_type() == 'GPS_RTCM_DATA':
-                    rclpy.loginfo(self.get_logger(), "Received RTCM data")
+                    self.get_logger().info("Received RTCM data")
                     # handle rtcm data in separate process so that it does not block
                     rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
                     rtcm_process.start()
