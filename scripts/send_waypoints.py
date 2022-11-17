@@ -19,12 +19,16 @@ while True:
             with open(file_path, 'r') as f:
                 waypoints = f.readlines()
                 for waypoint in waypoints:
-                    long, lat = waypoint.split(',')
+                    long1, lat1 = waypoint.split(',')
+                    long2 = float(long1)
+                    lat2 = float(lat1)
+                    long = long2*10000000
+                    lat = lat2*10000000
                     master.mav.debug_float_array_send(
-                        time.time(),
+                        round(time.time()),
                         b"waypoints",
                         0,
-                        bytearray([float(long), float(lat)])
+                        bytearray([int(long), int(lat)])
                     )
     if cmd == "start":
         master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
