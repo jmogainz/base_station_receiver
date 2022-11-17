@@ -45,12 +45,20 @@ class BSNavReceiver(Node):
                 if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
                     # longitude value is too large to be sent, it is split into list of digits
                     long = msg.data
-                    lat = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True).data
+                    lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
+                    lat = lat_msg.data
+
                     long = int(''.join(str(e) for e in long))
                     lat = int(''.join(str(e) for e in lat))
                     long = float(long / 10000000, 7)
                     lat = float(lat / 10000000, 7)
-                    
+
+                    # check signedness
+                    if str(msg.name) == "-":
+                        long = -long
+                    if str(lat_msg.name) == "-":
+                        lat = -lat
+
                     x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, long, lat) # data is sent as long, lat
                     ros_pose = self.createPose(x, y) 
                     self.current_wayoints.append(deepcopy(ros_pose))
