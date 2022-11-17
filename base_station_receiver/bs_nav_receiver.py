@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from pymavlink import mavutil
 import rclpy
 from rclpy.node import Node
@@ -12,11 +14,13 @@ from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import NavSatFix
 import math
 import serial
+import cv2
+from threading import timer
 
 class BSNavReceiver(Node):
 
     def __init__(self):
-        super().__init__('bs__nav_receiver')
+        super().__init__('bs_nav_receiver')
 
         self.gps_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_callback, 1)
 
@@ -125,6 +129,18 @@ class BSNavReceiver(Node):
         y = opposite = math.sin(azimuth) * hypotenuse
 
         return x, y
+    
+    def capture_photo_and_send_photo(self):
+        
+        photo = cv2.VideoCapture(0)
+        _, frame = photo.read()
+        self.master.mav.mavlink_data_stream_type(5)
+        self.master.mav.data_transmission_handshake()
+        msg = self.master.recv_match(type=['DATA_TRANSMISSION_HANDSHAKE')
+        master.mav.encapsulated_data_send()
+
+        
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -135,6 +151,11 @@ def main(args=None):
     rclpy.spin_once(bs_nav_receiver)
 
     bs_nav_receiver.receiveCmds()
+
+    self.timer.start()
+    
+    self.timer() = Timer(10,self.capture_photo_and_send_photo)
+
 
 
 if __name__ == '__main__':
