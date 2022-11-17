@@ -38,9 +38,9 @@ class BSNavReceiver(Node):
         # master.wait_heartbeat()
         # print("Heartbeat from system (system %u component %u)" % (master.target_system, master.target_system))
 
-            msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY', 'NAMED_VALUE_INT'], 
+            msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY', 'NAMED_VALUE_INT', 'GPS_RTCM_DATA'],
                                          blocking=True)
-            
+
             if msg.get_type() != 'BAD_DATA':
                 if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
                     # longitude value is too large to be sent, it is split into list of digits
@@ -48,29 +48,23 @@ class BSNavReceiver(Node):
                     lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
                     lat = list(lat_msg.data)
 
-                    long_name = int(msg.name.decode('utf-8'))
-                    lat_name = int(lat_msg.name.decode('utf-8'))
+                    long_name = int(msg.name)
+                    lat_name = int(lat_msg.name)
 
                     # get list values from 0 to long_name (length)
                     long = long[0:long_name]
                     lat = lat[0:lat_name]
 
                     # convert list of digits to string
-                    long = ''.join(chr(e) for e in long)
-                    lat = ''.join(chr(e) for e in lat)
+                    long = ''.join(chr(int(e)) for e in long)
+                    lat = ''.join(chr(int(e)) for e in lat)
 
                     long = float(long)
                     lat = float(lat)
 
-                    # check signedness
-                    if str(msg.name) == "-":
-                        long = -long
-                    if str(lat_msg.name) == "-":
-                        lat = -lat
-
                     x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, long, lat) # data is sent as long, lat
                     ros_pose = self.createPose(x, y) 
-                    self.current_wayoints.append(deepcopy(ros_pose))
+                    self.current_waypoints.append(deepcopy(ros_pose))
                     self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                 if msg.get_type() == 'NAMED_VALUE_INT':
                     if msg.name == 'nav_start' and msg.value == 1:
@@ -79,12 +73,14 @@ class BSNavReceiver(Node):
                             self.get_logger().info("All waypoints received, starting navigation")
                             if not self.nav_running:
                                 self.nav_running = True
-                                goToWaypoints(self.current_waypoints, self.navigator)
+                                self.nav_process = multiprocessing.Process(target=goToWaypoints, args=(self.current_waypoints, self.navigator))
+                                self.nav_process.start()
                             else:
                                 self.get_logger().info("Navigation already launched")
                     if msg.name == 'nav_stop' and msg.value == 1:
                         self.get_logger().info("Stopping navigation")
                         self.navigator.cancelNav()
+                        self.nav_process.join()
                     if msg.name == 'clear_wps' and msg.value == 1:
                         if not self.nav_running:
                             self.get_logger().info("Clearing waypoints")

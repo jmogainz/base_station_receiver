@@ -34,7 +34,7 @@ def goToWaypoints(waypoints, navigator):
         feedback = navigator.getFeedback()
         if feedback and i % 5 == 0:
             print('Executing current waypoint: ' +
-                str(feedback.current_waypoint + 1) + '/' + str(len(inspection_points)))
+                str(feedback.current_waypoint + 1) + '/' + str(len(waypoints)))
 
 
 if __name__ == '__main__':
