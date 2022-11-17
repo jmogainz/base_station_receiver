@@ -31,27 +31,31 @@ while True:
                     longs = [ord(c) for c in long]
                     lats = [ord(c) for c in lat]
 
+                    long_name = str(len(longs))
+                    lat_name = str(len(lats))
+
+                    long_name = long_name.encode('utf-8')
+                    lat_name = lat_name.encode('utf-8')
+
                     longs.extend([0] * (58 - len(longs)))
                     lats.extend([0] * (58 - len(lats)))
 
                     # send sequence is long, lat
                     master.mav.debug_float_array_send(
                         int(time.time()),
-                        b"long",
+                        long_name,
                         wp_count,
                         data = bytearray(longs)
                     )
                     master.mav.debug_float_array_send(
                         int(time.time()),
-                        b"lat",
+                        lat_name,
                         wp_count,
                         data = bytearray(lats)
                     )
 
-
-
-
                     wp_count += 1
+                    
     elif cmd == "start":
         master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
     elif cmd == "clear":

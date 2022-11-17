@@ -48,12 +48,16 @@ class BSNavReceiver(Node):
                     lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
                     lat = list(lat_msg.data)
 
-                    long = ''.join([chr(int(i)) for i in long])
-                    lat = ''.join([chr(int(i)) for i in lat])
+                    long_name = int(msg.name.decode('utf-8'))
+                    lat_name = int(lat_msg.name.decode('utf-8'))
 
-                    # there is a trailing backslash on the longitude string, remove it and everything after it
-                    long = long.split('\\')[0]
-                    lat = lat.split('\\')[0]
+                    # get list values from 0 to long_name (length)
+                    long = long[0:long_name]
+                    lat = lat[0:lat_name]
+
+                    # convert list of digits to string
+                    long = ''.join(chr(e) for e in long)
+                    lat = ''.join(chr(e) for e in lat)
 
                     long = float(long)
                     lat = float(lat)
