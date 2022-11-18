@@ -43,6 +43,7 @@ ament_python_install_package(${PROJECT_NAME})
 # Install Python executables
 install(PROGRAMS
   base_station_receiver/robot_navigator.py
+  base_station_receiver/navsat_conversions.py
   base_station_receiver/lotus_waypoint_follower.py
   base_station_receiver/bs_nav_receiver.py
   scripts/send_waypoints.py

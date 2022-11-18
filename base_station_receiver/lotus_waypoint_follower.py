@@ -25,16 +25,7 @@ from robot_navigator import BasicNavigator
 
 def goToWaypoints(waypoints, navigator):
     navigator.followWaypoints(waypoints)
-
-    # Do something during our route (e.x. AI to analyze stock information or upload to the cloud)
-    # Simply print the current waypoint ID for the demonstation
-    i = 0
-    while not navigator.isNavComplete():
-        i = i + 1
-        feedback = navigator.getFeedback()
-        if feedback and i % 5 == 0:
-            print('Executing current waypoint: ' +
-                str(feedback.current_waypoint + 1) + '/' + str(len(waypoints)))
+    
 
 
 if __name__ == '__main__':

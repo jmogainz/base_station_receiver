@@ -12,8 +12,10 @@ from geographiclib.geodesic import Geodesic
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import NavSatFix
+import utm
 import math
 import serial
+from navsat_conversions import LLtoUTM, UTMtoLL
 # import cv2
 # from threading import timer
 
@@ -34,79 +36,93 @@ class BSNavReceiver(Node):
         self.origin_long = 0
     
     def receiveCmds(self):
+        i = 0
         while True:
-        # master.wait_heartbeat()
-        # print("Heartbeat from system (system %u component %u)" % (master.target_system, master.target_system))
 
-            msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY', 'NAMED_VALUE_INT', 'GPS_RTCM_DATA'],
-                                         blocking=True)
+            msg = self.master.recv_match(blocking=False)
 
-            if msg.get_type() != 'BAD_DATA':
-                if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
-                    # longitude value is too large to be sent, it is split into list of digits
-                    long = list(msg.data)
-                    lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
-                    lat = list(lat_msg.data)
+            valid_msg = False
+            try:
+                print(f"Received message of type {msg.get_type()}")
+                valid_msg = True
+            except:
+                pass
+            
+            if valid_msg:
+                if msg.get_type() != 'BAD_DATA':
+                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
+                        # longitude value is too large to be sent, it is split into list of digits
+                        long = list(msg.data)
+                        lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
+                        lat = list(lat_msg.data)
 
-                    long_name = int(msg.name)
-                    lat_name = int(lat_msg.name)
+                        long_name = int(msg.name)
+                        lat_name = int(lat_msg.name)
 
-                    # get list values from 0 to long_name (length)
-                    long = long[0:long_name]
-                    lat = lat[0:lat_name]
+                        # get list values from 0 to long_name (length)
+                        long = long[0:long_name]
+                        lat = lat[0:lat_name]
 
-                    # convert list of digits to string
-                    long = ''.join(chr(int(e)) for e in long)
-                    lat = ''.join(chr(int(e)) for e in lat)
+                        # convert list of digits to string
+                        long = ''.join(chr(int(e)) for e in long)
+                        lat = ''.join(chr(int(e)) for e in lat)
 
-                    long = float(long)
-                    lat = float(lat)
+                        long = float(long)
+                        lat = float(lat)
 
-                    x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, long, lat) # data is sent as long, lat
-                    ros_pose = self.createPose(x, y) 
-                    self.current_waypoints.append(deepcopy(ros_pose))
-                    self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
-                if msg.get_type() == 'NAMED_VALUE_INT':
-                    if msg.name == 'nav_start' and msg.value == 1:
-                        self.get_logger().info("Received start navigation command")
-                        if self.current_waypoints:
-                            self.get_logger().info("All waypoints received, starting navigation")
+                        # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        x, y, zone = LLtoUTM(lat, long)
+                        ros_pose = self.createPose(x, y) 
+                        self.current_waypoints.append(deepcopy(ros_pose))
+                        self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
+                    if msg.get_type() == 'NAMED_VALUE_INT':
+                        if msg.name == 'nav_start' and msg.value == 1:
+                            self.get_logger().info("Received start navigation command")
+                            if self.current_waypoints:
+                                self.get_logger().info("All waypoints received, starting navigation")
+                                if not self.nav_running:
+                                    self.nav_running = True
+                                    self.navigator.followWaypoints(self.current_waypoints)
+                                else:
+                                    self.get_logger().info("Navigation already launched")
+                        if msg.name == 'nav_stop' and msg.value == 1:
+                            self.get_logger().info("Stopping navigation")
+                            self.navigator.cancelNav()
+                        if msg.name == 'clear_wps' and msg.value == 1:
                             if not self.nav_running:
-                                self.nav_running = True
-                                self.nav_process = multiprocessing.Process(target=goToWaypoints, args=(self.current_waypoints, self.navigator))
-                                self.nav_process.start()
+                                self.get_logger().info("Clearing waypoints")
+                                self.current_waypoints.clear()
                             else:
-                                self.get_logger().info("Navigation already launched")
-                    if msg.name == 'nav_stop' and msg.value == 1:
-                        self.get_logger().info("Stopping navigation")
-                        self.navigator.cancelNav()
-                        self.nav_process.join()
-                    if msg.name == 'clear_wps' and msg.value == 1:
-                        if not self.nav_running:
-                            self.get_logger().info("Clearing waypoints")
-                            self.current_waypoints.clear()
-                        else:
-                            self.get_logger().info("Cannot clear waypoints while navigating")
-                    if msg.name == 'return_home' and msg.value == 1:
-                        if not self.nav_running:
-                            self.get_logger().info("Returning to home")
-                            self.navigator.goToPose(self.initial_pose)
-                        else:
-                            self.get_logger().info("Cannot return home while navigating")
-                if msg.get_type() == 'GPS_RTCM_DATA':
-                    self.get_logger().info("Received RTCM data")
-                    # handle rtcm data in separate process so that it does not block
-                    rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
-                    rtcm_process.start()
+                                self.get_logger().info("Cannot clear waypoints while navigating")
+                        if msg.name == 'return_home' and msg.value == 1:
+                            if not self.nav_running:
+                                self.get_logger().info("Returning to home")
+                                self.navigator.goToPose(self.initial_pose)
+                            else:
+                                self.get_logger().info("Cannot return home while navigating")
+                    if msg.get_type() == 'GPS_RTCM_DATA':
+                        self.get_logger().info("Received RTCM data")
+                        # handle rtcm data in separate process so that it does not block
+                        rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
+                        rtcm_process.start()
+
+            if not self.navigator.isNavComplete():
+                i = i + 1
+                feedback = self.navigator.getFeedback()
+                if feedback and i % 5 == 0:
+                    print('Executing current waypoint: ' +
+                        str(feedback.current_waypoint + 1) + '/' + str(len(self.current_waypoints)))
 
             if self.nav_running and self.navigator.isNavComplete():
                 result = self.navigator.getResult()
                 if result == NavigationResult.SUCCEEDED:
                     print('Waypoints navigated successfully...')
                     self.nav_running = False
+                    i = 0
                 elif result == NavigationResult.CANCELED:
                     print('Waypoint navigation cancelled...')
                     self.nav_running = False
+                    i = 0
                 elif result == NavigationResult.FAILED:
                     print('Waypoint navigation failed...')
                     self.nav_running = False
@@ -129,10 +145,12 @@ class BSNavReceiver(Node):
 
     def createPose(self, x, y):
         pose = PoseStamped()
-        pose.header.frame_id = 'map'
+        pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
         pose.pose.orientation.z = 1.0
         pose.pose.orientation.w = 0.0
+        self.get_logger().info("x: %f" % x)
+        self.get_logger().info("y: %f" % y)
         pose.pose.position.x = x
         pose.pose.position.y = y
         return pose
@@ -150,8 +168,9 @@ class BSNavReceiver(Node):
         x = adjacent = math.cos(azimuth) * hypotenuse
         y = opposite = math.sin(azimuth) * hypotenuse
 
+        # Convert to UTM coordinates
         return x, y
-    
+
     # def capture_photo_and_send_photo(self):
         
     #     photo = cv2.VideoCapture(0)
