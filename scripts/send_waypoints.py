@@ -15,7 +15,7 @@ while True:
         # waypoints are structured as follows:
         # long, lat
         # long, lat
-        file_path  = input("Enter waypoint file path >")
+        file_path  = input("Enter waypoint file path > ")
         if(os.path.exists(file_path)):
             with open(file_path, 'r') as f:
                 waypoints = f.readlines()
