@@ -6,6 +6,7 @@ from rclpy.node import Node
 from copy import deepcopy
 from robot_navigator import BasicNavigator, NavigationResult
 import multiprocessing
+import threading
 from std_msgs.msg import Float64MultiArray
 from geographiclib.geodesic import Geodesic
 from sensor_msgs.msg import NavSatFix
@@ -18,6 +19,16 @@ import os
 import sys
 # import cv2
 # from threading import timer
+
+class Msg:
+    def __init__(self, name='', data='', type='', value=0):
+        self.name = name
+        self.data = data
+        self.type = type
+        self.value = value
+
+    def get_type(self):
+        return self.type
 
 class BSNavReceiver(Node):
 
@@ -34,12 +45,18 @@ class BSNavReceiver(Node):
         self.initial_pose = PoseStamped()
         self.origin_lat = 0
         self.origin_long = 0
+        self.msg = None
+        self.next_msg = None
+        self.lock = threading.Lock()
     
     def receiveCmds(self):
         i = 0
         while True:
+            self.lock.acquire()
 
-            msg = self.master.recv_match(blocking=False)
+            # receive a simulated message
+            msg = self.msg 
+            self.msg = None
 
             valid_msg = False
             try:
@@ -52,10 +69,12 @@ class BSNavReceiver(Node):
                 if msg.get_type() != 'BAD_DATA':
                     if msg.get_type() == 'DEBUG_FLOAT_ARRAY' or msg.get_type() == 'UNKNOWN_350':
                         # longitude value is too large to be sent, it is split into list of digits
-                        long = list(msg.data)
-                        lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
-                        lat = list(lat_msg.data)
+                        
+                        lat_msg = self.next_msg
+                        self.next_msg = None
 
+                        long = list(msg.data)
+                        lat = list(lat_msg.data)
                         long_name = int(msg.name)
                         lat_name = int(lat_msg.name)
 
@@ -105,6 +124,8 @@ class BSNavReceiver(Node):
                         # handle rtcm data in separate process so that it does not block
                         rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
                         rtcm_process.start()
+            
+            self.lock.release()
 
             if not self.navigator.isNavComplete():
                 i = i + 1
@@ -194,7 +215,62 @@ class BSNavReceiver(Node):
 
     #     master.mav.encapsulated_data_send()
 
-        
+    def bs_sim(self):
+        while True:
+            cmd = input("Enter UGV command >  ")
+            self.lock.acquire()
+            
+            if cmd == "waypoints":
+                # waypoints are structured as follows:
+                # long, lat
+                # long, lat
+                file_path  = input("Enter waypoint file path > ")
+                if(os.path.exists(file_path)):
+                    with open(file_path, 'r') as f:
+                        waypoints = f.readlines()
+                        wp_count = 1
+                        for waypoint in waypoints:
+                            long, lat = waypoint.split(',')
+
+                            # round everything to 7 decimal places
+                            long = str(round(float(long), 7))
+                            lat = str(round(float(lat), 7))
+
+                            # convert string to list of ascii values
+                            longs = [ord(c) for c in long]
+                            lats = [ord(c) for c in lat]
+
+                            long_name = str(len(longs))
+                            lat_name = str(len(lats))
+
+                            long_name = long_name.encode('utf-8')
+                            lat_name = lat_name.encode('utf-8')
+
+                            longs.extend([0] * (58 - len(longs)))
+                            lats.extend([0] * (58 - len(lats)))
+
+                            # simulated version of mavlink send
+                            self.msg = Msg(long_name, bytearray(longs), 'DEBUG_FLOAT_ARRAY')
+                            self.next_msg = Msg(lat_name, bytearray(lats), 'DEBUG_FLOAT_ARRAY')
+
+            elif cmd == "start":
+                self.msg = Msg('start_nav', value=1, type='NAMED_VALUE_INT')
+            elif cmd == "clear":
+                self.msg = Msg('clear_nav', value=1, type='NAMED_VALUE_INT')
+            elif cmd == "stop":
+                self.msg = Msg('stop_nav', value=1, type='NAMED_VALUE_INT')
+            elif cmd == "return":
+                self.msg = Msg('return_nav', value=1, type='NAMED_VALUE_INT')
+            elif cmd == "help":
+                print("\nwaypoints: prompts waypoint file input")
+                print("start: starts navigation to waypoints")
+                print("stop: stops navigation to waypoints")
+                print("return: returns to home")
+                print("clear: clears waypoints")
+            else:
+                print("\n[ERROR] Invalid command. Enter help for available commands.\n")
+
+            self.lock.release()
 
 
 def main(args=None):
@@ -204,6 +280,10 @@ def main(args=None):
 
     # set the gps origin
     rclpy.spin_once(bs_nav_receiver)
+
+    # open up simulated base station in separate thread
+    bs = threading.Thread(target=bs_nav_receiver.bs_sim)
+    bs.start()
 
     bs_nav_receiver.receiveCmds()
 

@@ -5,7 +5,7 @@ from pymavlink import mavutil
 import time
 import os
 
-os.environ['MAVLINK20'] ='1'
+os.environ['MAVLINK20'] = 1
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
 
 while True:
