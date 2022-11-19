@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from pymavlink import mavutil
 import rclpy
 from rclpy.node import Node
 from copy import deepcopy
@@ -17,6 +16,8 @@ import serial
 from navsat_conversions import LLtoUTM, UTMtoLL
 import os
 import sys
+import socket
+import pickle
 # import cv2
 # from threading import timer
 
@@ -37,11 +38,12 @@ class BSNavReceiver(Node):
 
         self.gps_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_callback, 1)
 
-        self.master = mavutil.mavlink_connection('/dev/ttyUSB0', baud=57600)
+        self.host = 'localhost'
+        self.port = 14551
+
         self.current_waypoints = []
         self.navigator = BasicNavigator()
         self.nav_running = False
-        self.nav_launched = False
         self.initial_pose = PoseStamped()
         self.origin_lat = 0
         self.origin_long = 0
@@ -52,26 +54,29 @@ class BSNavReceiver(Node):
     def receiveCmds(self):
         i = 0
         while True:
-            self.lock.acquire()
+            # self.lock.acquire() # for threaded bs
 
-            # receive a simulated message
-            msg = self.msg 
-            self.msg = None
+            bs_recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            bs_recv_sock.bind((self.host, self.port))
+            bs_recv_sock.setblocking(False)
+            bs_recv_sock.settimeout(0.5)
 
             valid_msg = False
             try:
-                print(f"Received message of type {msg.get_type()}")
+                data = bs_recv_sock.recv(4096)
+                msg = pickle.loads(data)
                 valid_msg = True
             except:
                 pass
             
             if valid_msg:
                 if msg.get_type() != 'BAD_DATA':
-                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY' or msg.get_type() == 'UNKNOWN_350':
+                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
                         # longitude value is too large to be sent, it is split into list of digits
                         
-                        lat_msg = self.next_msg
-                        self.next_msg = None
+                        # receive again latitude
+                        data = bs_recv_sock.recv(4096)
+                        lat_msg = pickle.loads(data)
 
                         long = list(msg.data)
                         lat = list(lat_msg.data)
@@ -90,8 +95,9 @@ class BSNavReceiver(Node):
                         lat = float(lat)
 
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
-                        x, y, zone = LLtoUTM(lat, long)
-                        ros_pose = self.createPose(x, y) 
+                        # x, y, zone = LLtoUTM(lat, long)
+                        x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        ros_pose = self.createPose(x, y, 0.0) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                     if msg.get_type() == 'NAMED_VALUE_INT':
@@ -119,15 +125,19 @@ class BSNavReceiver(Node):
                                 self.navigator.goToPose(self.initial_pose)
                             else:
                                 self.get_logger().info("Cannot return home while navigating")
+                        if msg.name == 'kill_server' and msg.value == 1:
+                            self.get_logger().info("Killing server")
+                            self.destroy_node()
+                            sys.exit()
                     if msg.get_type() == 'GPS_RTCM_DATA':
                         self.get_logger().info("Received RTCM data")
                         # handle rtcm data in separate process so that it does not block
                         rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
                         rtcm_process.start()
             
-            self.lock.release()
+            # self.lock.release()
 
-            if not self.navigator.isNavComplete():
+            if not self.navigator.isNavComplete() and self.nav_running:
                 i = i + 1
                 feedback = self.navigator.getFeedback()
                 if feedback and i % 5 == 0:
@@ -161,22 +171,21 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        # self.initial_pose = self.createPose(0.0, 0.0)
-        # self.navigator.setInitialPose(self.initial_pose)
+        self.initial_pose = self.createPose(0.0, 0.0, 1.0)
+        self.get_logger().info("Initial pose and lat/long origin is recorded.")
 
         # set current gps location as datum in navsat_transform_node
         # datum_cmd = 'ros2 service call /datum robot_localization/srv/SetDatum \'{geo_pose: {position: {latitude: ' + str(current_gps_msg.latitude) + ', longitude: ' + str(current_gps_msg.longitude) + ', altitude: ' + str(current_gps_msg.altitude) + '}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}\''
         # os.system(datum_cmd)
 
+        # self.navigator.setInitialPose(self.initial_pose)
 
-    def createPose(self, x, y):
+    def createPose(self, x, y, yaw):
         pose = PoseStamped()
-        if x == 0.0 and y == 0.0:
-            pose.header.frame_id = 'map'
-        else:
-            pose.header.frame_id = 'utm'
+        pose.header.frame_id = 'map'
+        # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
-        pose.pose.orientation.z = 1.0
+        pose.pose.orientation.z = yaw
         pose.pose.orientation.w = 0.0
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
@@ -218,6 +227,7 @@ class BSNavReceiver(Node):
     def bs_sim(self):
         while True:
             cmd = input("Enter UGV command >  ")
+            
             self.lock.acquire()
             
             if cmd == "waypoints":
@@ -250,8 +260,8 @@ class BSNavReceiver(Node):
                             lats.extend([0] * (58 - len(lats)))
 
                             # simulated version of mavlink send
-                            self.msg = Msg(long_name, bytearray(longs), 'DEBUG_FLOAT_ARRAY')
-                            self.next_msg = Msg(lat_name, bytearray(lats), 'DEBUG_FLOAT_ARRAY')
+                            self.msg = Msg(long_name, bytearray(longs), 'DEBUG_FLOAT_ARRAY', 0)
+                            self.next_msg = Msg(lat_name, bytearray(lats), 'DEBUG_FLOAT_ARRAY', 0)
 
             elif cmd == "start":
                 self.msg = Msg('start_nav', value=1, type='NAMED_VALUE_INT')
@@ -270,6 +280,8 @@ class BSNavReceiver(Node):
             else:
                 print("\n[ERROR] Invalid command. Enter help for available commands.\n")
 
+            self.done_processing = False
+
             self.lock.release()
 
 
@@ -282,8 +294,8 @@ def main(args=None):
     rclpy.spin_once(bs_nav_receiver)
 
     # open up simulated base station in separate thread
-    bs = threading.Thread(target=bs_nav_receiver.bs_sim)
-    bs.start()
+    # bs = threading.Thread(target=bs_nav_receiver.bs_sim)
+    # bs.start()
 
     bs_nav_receiver.receiveCmds()
 

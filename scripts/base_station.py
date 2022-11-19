@@ -12,8 +12,6 @@ while True:
     cmd = input("Enter UGV command >  ")
     
     if cmd == "waypoints":
-        # waypoints are structured as follows:
-        # long, lat
         # long, lat
         file_path  = input("Enter waypoint file path > ")
         if(os.path.exists(file_path)):
