@@ -52,7 +52,7 @@ class BSNavReceiver(Node):
             
             if valid_msg:
                 if msg.get_type() != 'BAD_DATA':
-                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY' or msg.get_type() == 'UNKNOWN_350':
+                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
                         # longitude value is too large to be sent, it is split into list of digits
                         long = list(msg.data)
                         lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
@@ -73,7 +73,8 @@ class BSNavReceiver(Node):
                         lat = float(lat)
 
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
-                        x, y, zone = LLtoUTM(lat, long)
+                        # x, y, zone = LLtoUTM(lat, long)
+                        x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
                         ros_pose = self.createPose(x, y) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
@@ -142,20 +143,21 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        # self.initial_pose = self.createPose(0.0, 0.0)
-        # self.navigator.setInitialPose(self.initial_pose)
+        self.initial_pose = self.createPose(0.0, 0.0)
 
         # set current gps location as datum in navsat_transform_node
         # datum_cmd = 'ros2 service call /datum robot_localization/srv/SetDatum \'{geo_pose: {position: {latitude: ' + str(current_gps_msg.latitude) + ', longitude: ' + str(current_gps_msg.longitude) + ', altitude: ' + str(current_gps_msg.altitude) + '}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}\''
         # os.system(datum_cmd)
+        
+        self.navigator.setInitialPose(self.initial_pose)
+
+        
 
 
     def createPose(self, x, y):
         pose = PoseStamped()
-        if x == 0.0 and y == 0.0:
-            pose.header.frame_id = 'map'
-        else:
-            pose.header.frame_id = 'utm'
+        pose.header.frame_id = 'map'
+        # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
         pose.pose.orientation.z = 1.0
         pose.pose.orientation.w = 0.0
