@@ -12,12 +12,22 @@ while True:
     cmd = input("Enter UGV command >  ")
     
     if cmd == "waypoints":
-        # long, lat
+        
+        while True:
+            type = input("Enter waypoint type >  ")
+            if type == 'map':
+                type_val = 1
+            elif type == 'll':
+                type_val = 2
+            if type == 1 or type == 2:
+                break
+            else:
+                print("Invalid waypoint type. Try again.")
+
         file_path  = input("Enter waypoint file path > ")
         if(os.path.exists(file_path)):
             with open(file_path, 'r') as f:
                 waypoints = f.readlines()
-                wp_count = 1
                 for waypoint in waypoints:
                     long, lat = waypoint.split(',')
 
@@ -42,17 +52,15 @@ while True:
                     master.mav.debug_float_array_send(
                         int(time.time()),
                         long_name,
-                        wp_count,
+                        type_val,
                         data = bytearray(longs)
                     )
                     master.mav.debug_float_array_send(
                         int(time.time()),
                         lat_name,
-                        wp_count,
+                        type_val,
                         data = bytearray(lats)
                     )
-
-                    wp_count += 1
                     
     elif cmd == "start":
         master.mav.named_value_int_send(int(time.time()), b"start", 1)

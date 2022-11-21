@@ -72,7 +72,12 @@ class BSNavReceiver(Node):
 
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
                         # x, y, zone = LLtoUTM(lat, long)
-                        x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        if msg.array_id == 2:
+                            x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        else:
+                            x = long # meters
+                            y = lat
+                        
                         ros_pose = self.createPose(x, y, 0.0) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
