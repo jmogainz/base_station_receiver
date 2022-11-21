@@ -77,7 +77,8 @@ class BSNavReceiver(Node):
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                     if msg.get_type() == 'NAMED_VALUE_INT':
-                        if msg.name == 'nav_start' and msg.value == 1:
+                        print(msg.name)
+                        if msg.name == 'start' and msg.value == 1:
                             self.get_logger().info("Received start navigation command")
                             if self.current_waypoints:
                                 self.get_logger().info("All waypoints received, starting navigation")
@@ -86,26 +87,21 @@ class BSNavReceiver(Node):
                                     self.navigator.followWaypoints(self.current_waypoints)
                                 else:
                                     self.get_logger().info("Navigation already launched")
-                        if msg.name == 'nav_stop' and msg.value == 1:
+                        if msg.name == 'stop' and msg.value == 1:
                             self.get_logger().info("Stopping navigation")
                             self.navigator.cancelNav()
-                            self.nav_running = False
-                        if msg.name == 'clear_wps' and msg.value == 1:
+                        if msg.name == 'clear' and msg.value == 1:
                             if not self.nav_running:
                                 self.get_logger().info("Clearing waypoints")
                                 self.current_waypoints.clear()
                             else:
                                 self.get_logger().info("Cannot clear waypoints while navigating")
-                        if msg.name == 'return_home' and msg.value == 1:
+                        if msg.name == 'return' and msg.value == 1:
                             if not self.nav_running:
                                 self.get_logger().info("Returning to home")
                                 self.navigator.goToPose(self.initial_pose)
                             else:
                                 self.get_logger().info("Cannot return home while navigating")
-                            if msg.name == 'kill_server' and msg.value == 1:
-                                self.get_logger().info("Killing server")
-                                self.destroy_node()
-                                sys.exit()
                     if msg.get_type() == 'GPS_RTCM_DATA':
                         self.get_logger().info("Received RTCM data")
                         # handle rtcm data in separate process so that it does not block

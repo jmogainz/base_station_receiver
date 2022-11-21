@@ -55,13 +55,13 @@ while True:
                     wp_count += 1
                     
     elif cmd == "start":
-        master.mav.named_value_int_send(int(time.time()), b"nav_start", 1)
+        master.mav.named_value_int_send(int(time.time()), b"start", 1)
     elif cmd == "clear":
-       master.mav.named_value_int_send(int(time.time()), b"clear_wps", 1)
+       master.mav.named_value_int_send(int(time.time()), b"clear", 1)
     elif cmd == "stop":
-        master.mav.named_value_int_send(int(time.time()), b"nav_stop", 1)
+        master.mav.named_value_int_send(int(time.time()), b"stop", 1)
     elif cmd == "return":
-        master.mav.named_value_int_send(int(time.time()), b"return_home", 1)
+        master.mav.named_value_int_send(int(time.time()), b"return", 1)
     elif cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
         print("start: starts navigation to waypoints")
