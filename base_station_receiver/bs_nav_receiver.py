@@ -89,6 +89,7 @@ class BSNavReceiver(Node):
                         if msg.name == 'nav_stop' and msg.value == 1:
                             self.get_logger().info("Stopping navigation")
                             self.navigator.cancelNav()
+                            self.nav_running = False
                         if msg.name == 'clear_wps' and msg.value == 1:
                             if not self.nav_running:
                                 self.get_logger().info("Clearing waypoints")
