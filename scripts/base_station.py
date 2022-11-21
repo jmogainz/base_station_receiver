@@ -12,14 +12,17 @@ while True:
     cmd = input("Enter UGV command >  ")
     
     if cmd == "waypoints":
-        
+
+        type = 0
+        # increment type by 2 and multiply it by 10
+
         while True:
             type = input("Enter waypoint type >  ")
             if type == 'map':
                 type_val = 1
             elif type == 'll':
                 type_val = 2
-            if type == 1 or type == 2:
+            if type_val:
                 break
             else:
                 print("Invalid waypoint type. Try again.")
