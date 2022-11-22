@@ -18,6 +18,7 @@ import os
 import sys
 import socket
 import pickle
+import numpy as np
 # import cv2
 # from threading import timer
 
@@ -97,7 +98,7 @@ class BSNavReceiver(Node):
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
                         # x, y, zone = LLtoUTM(lat, long)
                         x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
-                        ros_pose = self.createPose(x, y, 0.0) 
+                        ros_pose = self.createPose(x, y, True) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                     if msg.get_type() == 'NAMED_VALUE_INT':
@@ -171,7 +172,7 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.initial_pose = self.createPose(0.0, 0.0, 0.0)
+        self.initial_pose = self.createPose(0.0, 0.0, False)
         self.get_logger().info("Initial pose and lat/long origin is recorded.")
 
         # set current gps location as datum in navsat_transform_node
@@ -180,20 +181,29 @@ class BSNavReceiver(Node):
 
         # self.navigator.setInitialPose(self.initial_pose)
 
-    def createPose(self, x, y, yaw):
+    def createPose(self, x, y, wp):
         pose = PoseStamped()
         pose.header.frame_id = 'map'
         # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
-        pose.pose.orientation.z = 0.0
 
-        rclpy.spin_once(self.navigator)
+        # loads in current pose
+        # rclpy.spin_once(self.navigator)
 
-        w = self.navigator.current_pose.orientation.w
-        pose.pose.orientation.w = w
+        # z orientation should be facing away from origin
+        if wp:
+            rz = math.atan2(y, x)
+            self.get_logger().info("Waypoint orientation radians: %s" % rz)
+            qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, rz)
+            pose.pose.orientation.z = z = qz
+            pose.pose.orientation.w = w = qw
+        else:
+            pose.pose.orientation.z = z = 0.0
+            pose.pose.orientation.w = 0.0
+
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
-        self.get_logger().info("w: %f" % w)
+        self.get_logger().info("z: %f" % z)
         pose.pose.position.x = x
         pose.pose.position.y = y
         return pose
@@ -213,6 +223,25 @@ class BSNavReceiver(Node):
 
         # Convert to UTM coordinates
         return x, y
+
+    def get_quaternion_from_euler(self, roll, pitch, yaw):
+        """
+        Convert an Euler angle to a quaternion.
+        
+        Input
+        :param roll: The roll (rotation around x-axis) angle in radians.
+        :param pitch: The pitch (rotation around y-axis) angle in radians.
+        :param yaw: The yaw (rotation around z-axis) angle in radians.
+        
+        Output
+        :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+        """
+        qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+        qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+        qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        
+        return qx, qy, qz, qw
 
     # def capture_photo_and_send_photo(self):
         
