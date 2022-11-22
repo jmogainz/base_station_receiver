@@ -171,7 +171,7 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.initial_pose = self.createPose(0.0, 0.0, 1.0)
+        self.initial_pose = self.createPose(0.0, 0.0, 0.0)
         self.get_logger().info("Initial pose and lat/long origin is recorded.")
 
         # set current gps location as datum in navsat_transform_node
@@ -185,10 +185,15 @@ class BSNavReceiver(Node):
         pose.header.frame_id = 'map'
         # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
-        pose.pose.orientation.z = yaw
-        pose.pose.orientation.w = 0.0
+        pose.pose.orientation.z = 0.0
+
+        rclpy.spin_once(self.navigator)
+
+        w = self.navigator.current_pose.orientation.w
+        pose.pose.orientation.w = w
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
+        self.get_logger().info("w: %f" % w)
         pose.pose.position.x = x
         pose.pose.position.y = y
         return pose

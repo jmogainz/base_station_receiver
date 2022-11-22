@@ -18,7 +18,8 @@ from enum import Enum
 
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, Pose
+from nav_msgs.msg import Odometry
 from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateThroughPoses, NavigateToPose, FollowWaypoints, ComputePathToPose, ComputePathThroughPoses
 from nav2_msgs.srv import LoadMap, ClearEntireCostmap, ManageLifecycleNodes, GetCostmap
@@ -27,8 +28,8 @@ import rclpy
 
 from rclpy.action import ActionClient
 from rclpy.node import Node
-from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from rclpy.qos import QoSProfile
+from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 
 
 class NavigationResult(Enum):
@@ -47,12 +48,7 @@ class BasicNavigator(Node):
         self.result_future = None
         self.feedback = None
         self.status = None
-
-        blah_pose_qos = QoSProfile(
-          durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-          reliability=QoSReliabilityPolicy.RELIABLE,
-          history=QoSHistoryPolicy.KEEP_LAST,
-          depth=1)
+        self.current_pose = Pose()
 
         self.initial_pose_received = False
         self.nav_through_poses_client = ActionClient(self,
@@ -63,10 +59,10 @@ class BasicNavigator(Node):
         self.compute_path_to_pose_client = ActionClient(self, ComputePathToPose, 'compute_path_to_pose')
         self.compute_path_through_poses_client = ActionClient(self, ComputePathThroughPoses,
                                                               'compute_path_through_poses')
-        self.localization_pose_sub = self.create_subscription(PoseWithCovarianceStamped,
+        self.localization_pose_sub = self.create_subscription(Odometry,
                                                               '/odometry/global',
-                                                              self._amclPoseCallback,
-                                                              blah_pose_qos)
+                                                              self._globalPoseCallback,
+                                                              1)
         self.initial_pose_pub = self.create_publisher(PoseWithCovarianceStamped,
                                                       'initialpose',
                                                       10)
@@ -372,9 +368,10 @@ class BasicNavigator(Node):
             rclpy.spin_once(self, timeout_sec=1.0)
         return
 
-    def _amclPoseCallback(self, msg):
+    def _globalPoseCallback(self, msg):
         self.debug('Received odometry pose')
         self.initial_pose_received = True
+        self.current_pose = msg.pose.pose
         return
 
     def _feedbackCallback(self, msg):
