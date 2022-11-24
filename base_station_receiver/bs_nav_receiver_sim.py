@@ -19,9 +19,6 @@ import sys
 import socket
 import pickle
 import numpy as np
-# import cv2
-# from threading import timer
-
 class Msg:
     def __init__(self, name='', data='', type='', value=0):
         self.name = name
@@ -54,14 +51,11 @@ class BSNavReceiver(Node):
     
     def receiveCmds(self):
         i = 0
+        bs_recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        bs_recv_sock.bind((self.host, self.port))
+        bs_recv_sock.setblocking(False)
+        bs_recv_sock.settimeout(0.5)
         while True:
-            # self.lock.acquire() # for threaded bs
-
-            bs_recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            bs_recv_sock.bind((self.host, self.port))
-            bs_recv_sock.setblocking(False)
-            bs_recv_sock.settimeout(0.5)
-
             valid_msg = False
             try:
                 data = bs_recv_sock.recv(4096)
@@ -98,7 +92,7 @@ class BSNavReceiver(Node):
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
                         # x, y, zone = LLtoUTM(lat, long)
                         x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
-                        ros_pose = self.createPose(x, y, True) 
+                        ros_pose = self.createPose(x, y) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                     if msg.get_type() == 'NAMED_VALUE_INT':
@@ -120,10 +114,19 @@ class BSNavReceiver(Node):
                                 self.current_waypoints.clear()
                             else:
                                 self.get_logger().info("Cannot clear waypoints while navigating")
+                        if msg.name == 'heading' and msg.value == 1:
+                            rclpy.spin_once(self.navigator)
+                            qx = self.navigator.current_pose.orientation.x
+                            qy = self.navigator.current_pose.orientation.y
+                            qz = self.navigator.current_pose.orientation.z
+                            qw = self.navigator.current_pose.orientation.w
+                            roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
+                            self.get_logger().info("Current heading: %s" % yaw)
                         if msg.name == 'return_home' and msg.value == 1:
                             if not self.nav_running:
                                 self.get_logger().info("Returning to home")
-                                self.navigator.goToPose(self.initial_pose)
+                                home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
+                                self.navigator.goToPose(home_pose)
                             else:
                                 self.get_logger().info("Cannot return home while navigating")
                         if msg.name == 'kill_server' and msg.value == 1:
@@ -172,8 +175,7 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.initial_pose = self.createPose(0.0, 0.0, False)
-        self.get_logger().info("Initial pose and lat/long origin is recorded.")
+        self.get_logger().info("Initial lat/long origin is recorded.")
 
         # set current gps location as datum in navsat_transform_node
         # datum_cmd = 'ros2 service call /datum robot_localization/srv/SetDatum \'{geo_pose: {position: {latitude: ' + str(current_gps_msg.latitude) + ', longitude: ' + str(current_gps_msg.longitude) + ', altitude: ' + str(current_gps_msg.altitude) + '}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}\''
@@ -181,30 +183,43 @@ class BSNavReceiver(Node):
 
         # self.navigator.setInitialPose(self.initial_pose)
 
-    def createPose(self, x, y, wp):
+    def createPose(self, x, y, from_current=False):
         pose = PoseStamped()
         pose.header.frame_id = 'map'
         # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
 
-        # loads in current pose
-        # rclpy.spin_once(self.navigator)
-
-        # z orientation should be facing away from origin
-        if wp:
-            rz = math.atan2(y, x)
-            self.get_logger().info("Waypoint orientation radians: %s" % rz)
-            qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, rz)
-            pose.pose.orientation.z = z = qz
-            pose.pose.orientation.w = w = qw
-        else:
-            pose.pose.orientation.z = z = 0.0
-            pose.pose.orientation.w = 0.0
-
+        # absolute position in map frame
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
         pose.pose.position.x = x
-        pose.pose.position.y = y
+        pose.pose.position.y = y 
+
+        # loads in current pose
+        rclpy.spin_once(self.navigator)
+
+        # z orientation should be facing away from most recent waypoint
+        if from_current:
+            dx = x - self.navigator.current_pose.position.x
+            dy = y - self.navigator.current_pose.position.y
+            yaw = math.atan2(dy, dx)
+            self.get_logger().info("Orientation from current location: %s" % yaw)
+        else:
+            if self.current_waypoints:
+                last_waypoint = self.current_waypoints[-1]
+                dx = x - last_waypoint.pose.position.x
+                dy = y - last_waypoint.pose.position.y
+                yaw = math.atan2(dy, dx)
+            else:
+                dx = x - self.navigator.current_pose.position.x
+                dy = y - self.navigator.current_pose.position.y
+                yaw = math.atan2(dy, dx)
+            self.get_logger().info("Orientation from previous waypoint: %s" % yaw)
+
+        qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, yaw) # x and y are 0 because we are only rotating around z axis
+        pose.pose.orientation.z = z = qz
+        pose.pose.orientation.w = w = qw
+
         return pose
 
     def convert_to_map_coords(self, origin_lat, origin_long, goal_lat, goal_long):
@@ -242,81 +257,24 @@ class BSNavReceiver(Node):
         
         return qx, qy, qz, qw
 
-    # def capture_photo_and_send_photo(self):
-        
-    #     photo = cv2.VideoCapture(0)
-    #     _, frame = photo.read()
-    #     self.master.mav.mavlink_data_stream_type(5)
-    #     self.master.mav.data_transmission_handshake()
-    #     msg = self.master.recv_match(type=['DATA_TRANSMISSION_HANDSHAKE')
-    #     self.master.mav.data_transmission_handshake()
+    def get_euler_from_quaternion(self, x, y, z, w):
+        """
+        Converts quaternion (w in last place) to euler roll, pitch, yaw
+        quaternion = [x, y, z, w]
+        Bellow should be replaced when porting for ROS 2 Python tf_conversions is done.
+        """
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = np.arctan2(sinr_cosp, cosr_cosp)
 
-    #     image_string = base64.b64decode(frame)
+        sinp = 2 * (w * y - z * x)
+        pitch = np.arcsin(sinp)
 
-    #    print(image_string) 
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
 
-    #     master.mav.encapsulated_data_send()
-
-    def bs_sim(self):
-        while True:
-            cmd = input("Enter UGV command >  ")
-            
-            self.lock.acquire()
-            
-            if cmd == "waypoints":
-                # waypoints are structured as follows:
-                # long, lat
-                # long, lat
-                file_path  = input("Enter waypoint file path > ")
-                if(os.path.exists(file_path)):
-                    with open(file_path, 'r') as f:
-                        waypoints = f.readlines()
-                        wp_count = 1
-                        for waypoint in waypoints:
-                            long, lat = waypoint.split(',')
-
-                            # round everything to 7 decimal places
-                            long = str(round(float(long), 7))
-                            lat = str(round(float(lat), 7))
-
-                            # convert string to list of ascii values
-                            longs = [ord(c) for c in long]
-                            lats = [ord(c) for c in lat]
-
-                            long_name = str(len(longs))
-                            lat_name = str(len(lats))
-
-                            long_name = long_name.encode('utf-8')
-                            lat_name = lat_name.encode('utf-8')
-
-                            longs.extend([0] * (58 - len(longs)))
-                            lats.extend([0] * (58 - len(lats)))
-
-                            # simulated version of mavlink send
-                            self.msg = Msg(long_name, bytearray(longs), 'DEBUG_FLOAT_ARRAY', 0)
-                            self.next_msg = Msg(lat_name, bytearray(lats), 'DEBUG_FLOAT_ARRAY', 0)
-
-            elif cmd == "start":
-                self.msg = Msg('start_nav', value=1, type='NAMED_VALUE_INT')
-            elif cmd == "clear":
-                self.msg = Msg('clear_nav', value=1, type='NAMED_VALUE_INT')
-            elif cmd == "stop":
-                self.msg = Msg('stop_nav', value=1, type='NAMED_VALUE_INT')
-            elif cmd == "return":
-                self.msg = Msg('return_nav', value=1, type='NAMED_VALUE_INT')
-            elif cmd == "help":
-                print("\nwaypoints: prompts waypoint file input")
-                print("start: starts navigation to waypoints")
-                print("stop: stops navigation to waypoints")
-                print("return: returns to home")
-                print("clear: clears waypoints")
-            else:
-                print("\n[ERROR] Invalid command. Enter help for available commands.\n")
-
-            self.done_processing = False
-
-            self.lock.release()
-
+        return roll, pitch, yaw
 
 def main(args=None):
     rclpy.init(args=args)

@@ -5,6 +5,7 @@ Simulate MAVLink base station over local UDP port.
 import os
 import socket
 import pickle
+import readline
 
 host = 'localhost'
 send_port = 14551
@@ -23,7 +24,7 @@ class Msg:
 
 while True:
     cmd = input("Enter UGV command >  ")
-    
+
     if cmd == "waypoints":
         file_path  = input("Enter waypoint file path > ")
         if(os.path.exists(file_path)):
@@ -34,8 +35,8 @@ while True:
                     long, lat = waypoint.split(',')
 
                     # round everything to 7 decimal places
-                    long = str(round(float(long), 7))
-                    lat = str(round(float(lat), 7))
+                    long = str(round(float(long), 9))
+                    lat = str(round(float(lat), 9))
 
                     # convert string to list of ascii values
                     longs = [ord(c) for c in long]
@@ -72,6 +73,9 @@ while True:
         client.sendto(pickle.dumps(msg), (host, send_port))
     elif cmd == "kill_receiver":
         msg = Msg(name="kill_server", data=b"", type='NAMED_VALUE_INT', value=1)
+        client.sendto(pickle.dumps(msg), (host, send_port))
+    elif cmd == "heading":
+        msg = Msg(name="heading", data=b"", type='NAMED_VALUE_INT', value=1)
         client.sendto(pickle.dumps(msg), (host, send_port))
     elif cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
