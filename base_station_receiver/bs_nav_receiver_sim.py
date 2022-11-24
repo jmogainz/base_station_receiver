@@ -203,7 +203,6 @@ class BSNavReceiver(Node):
 
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
-        self.get_logger().info("z: %f" % z)
         pose.pose.position.x = x
         pose.pose.position.y = y
         return pose
