@@ -13,11 +13,12 @@ send_port = 14551
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 class Msg:
-    def __init__(self, name='', data='', type='', value=0):
+    def __init__(self, name='', data='', type='', value=0, array_id=0):
         self.name = name
         self.data = data
         self.type = type
         self.value = value
+        self.array_id = array_id
 
     def get_type(self):
         return self.type
@@ -26,6 +27,18 @@ while True:
     cmd = input("Enter UGV command >  ")
 
     if cmd == "waypoints":
+
+        while True:
+            type = input("Enter waypoint type >  ")
+            if type == 'map':
+                type_val = 1
+            elif type == 'll':
+                type_val = 2
+            if type_val:
+                break
+            else:
+                print("Invalid waypoint type. Try again.")
+
         file_path  = input("Enter waypoint file path > ")
         if(os.path.exists(file_path)):
             with open(file_path, 'r') as f:
@@ -51,10 +64,10 @@ while True:
                     longs.extend([0] * (58 - len(longs)))
                     lats.extend([0] * (58 - len(lats)))
 
-                    msg = Msg(name=long_name, data=longs, type='DEBUG_FLOAT_ARRAY', value=1)
+                    msg = Msg(name=long_name, data=longs, type='DEBUG_FLOAT_ARRAY', value=1, array_id=type_val)
                     client.sendto(pickle.dumps(msg), (host, send_port))
 
-                    msg = Msg(name=lat_name, data=lats, type='DEBUG_FLOAT_ARRAY', value=1)
+                    msg = Msg(name=lat_name, data=lats, type='DEBUG_FLOAT_ARRAY', value=1, array_id=type_val)
                     client.sendto(pickle.dumps(msg), (host, send_port))
 
                     wp_count += 1

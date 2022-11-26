@@ -91,7 +91,12 @@ class BSNavReceiver(Node):
 
                         # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
                         # x, y, zone = LLtoUTM(lat, long)
-                        x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        if msg.array_id == 2:
+                            x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                        else:
+                            x = long # meters
+                            y = lat
+
                         ros_pose = self.createPose(x, y) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
@@ -234,6 +239,10 @@ class BSNavReceiver(Node):
         azimuth = math.radians(azimuth)
         x = adjacent = math.cos(azimuth) * hypotenuse
         y = opposite = math.sin(azimuth) * hypotenuse
+
+        # i need to test this theory but....ros believes east is our 0 heading and x axis, whereas WGS84 believes north is 0 heading and x axis
+        # so x needs to become y and y needs to become x negated
+        
 
         # Convert to UTM coordinates
         return x, y
