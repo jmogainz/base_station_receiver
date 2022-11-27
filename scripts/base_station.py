@@ -6,7 +6,7 @@ import time
 import os
 from multiprocessing import Process
 
-os.environ['MAVLINK20'] = '1'
+os.putenv("MAVLINK20","1")
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
 
 def heartbeat():
