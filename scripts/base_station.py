@@ -23,6 +23,7 @@ while True:
     
     if cmd == "waypoints":
 
+        type_val = 0
         while True:
             type = input("Enter waypoint type >  ")
             if type == 'map':
