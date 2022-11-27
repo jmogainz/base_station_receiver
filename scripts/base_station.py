@@ -9,13 +9,19 @@ from multiprocessing import Process
 os.environ['MAVLINK20'] = '1'
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
 
+def heartbeat():
+    while True:
+        master.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
+         mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
+        time.sleep(1)
+
+p = Process(target=heartbeat)
+p.start()
+
 while True:
     cmd = input("Enter UGV command >  ")
     
     if cmd == "waypoints":
-
-        type = 0
-        # increment type by 2 and multiply it by 10
 
         while True:
             type = input("Enter waypoint type >  ")
@@ -36,8 +42,8 @@ while True:
                     long, lat = waypoint.split(',')
 
                     # round everything to 7 decimal places
-                    long = str(round(float(long), 7))
-                    lat = str(round(float(lat), 7))
+                    long = str(round(float(long), 10))
+                    lat = str(round(float(lat), 10))
 
                     # convert string to list of ascii values
                     longs = [ord(c) for c in long]
@@ -74,11 +80,9 @@ while True:
         master.mav.named_value_int_send(int(time.time()), b"stop", 1)
     elif cmd == "return":
         master.mav.named_value_int_send(int(time.time()), b"return", 1)
-    elif cmd == "heartbeat":
-        p = Process(trarget=master.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
-         mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0))
-        while True:
-            p.start()
+    elif cmd == "heading":
+        master.mav.named_value_int_send(int(time.time()), b"heading", 1)
+        
     elif cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
         print("start: starts navigation to waypoints")
@@ -89,3 +93,4 @@ while True:
     else:
         print("\n[ERROR] Invalid command. Enter help for available commands.\n")
         
+

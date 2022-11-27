@@ -17,8 +17,7 @@ from navsat_conversions import LLtoUTM, UTMtoLL
 import os
 import sys
 import numpy as np
-# import cv2
-# from threading import timer
+import time
 
 class BSNavReceiver(Node):
 
@@ -31,14 +30,21 @@ class BSNavReceiver(Node):
         self.current_waypoints = []
         self.navigator = BasicNavigator()
         self.nav_running = False
-        self.nav_launched = False
         self.initial_pose = PoseStamped()
         self.origin_lat = 0
         self.origin_long = 0
     
     def receiveCmds(self):
         i = 0
+        heartbeat_timer_start = time.perf_counter()
         while True:
+            heartbeat_timer_end = time.perf_counter()
+            if heartbeat_timer_end - heartbeat_timer_start > 60:
+                self.get_logger().info("Heartbeat not received in 60 seconds, exiting.")
+                self.navigator.cancelNav()
+                self.get_logger().info("Returning to home")
+                home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
+                self.navigator.goToPose(home_pose)
 
             msg = self.master.recv_match(blocking=False)
 
@@ -79,7 +85,7 @@ class BSNavReceiver(Node):
                             x = long # meters
                             y = lat
                         
-                        ros_pose = self.createPose(x, y, True) 
+                        ros_pose = self.createPose(x, y) 
                         self.current_waypoints.append(deepcopy(ros_pose))
                         self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
                     if msg.get_type() == 'NAMED_VALUE_INT':
@@ -102,12 +108,23 @@ class BSNavReceiver(Node):
                                 self.current_waypoints.clear()
                             else:
                                 self.get_logger().info("Cannot clear waypoints while navigating")
+                        if msg.name == 'heading' and msg.value == 1:
+                            rclpy.spin_once(self.navigator)
+                            qx = self.navigator.current_pose.orientation.x
+                            qy = self.navigator.current_pose.orientation.y
+                            qz = self.navigator.current_pose.orientation.z
+                            qw = self.navigator.current_pose.orientation.w
+                            roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
+                            self.get_logger().info("Current heading: %s" % yaw)
                         if msg.name == 'return' and msg.value == 1:
                             if not self.nav_running:
                                 self.get_logger().info("Returning to home")
-                                self.navigator.goToPose(self.initial_pose)
+                                home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
+                                self.navigator.goToPose(home_pose)
                             else:
                                 self.get_logger().info("Cannot return home while navigating")
+                    if msg.get_type() == 'HEARTBEAT':
+                        heartbeat_timer_start = time.perf_counter()
                     if msg.get_type() == 'GPS_RTCM_DATA':
                         self.get_logger().info("Received RTCM data")
                         # handle rtcm data in separate process so that it does not block
@@ -148,8 +165,7 @@ class BSNavReceiver(Node):
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
-        self.initial_pose = self.createPose(0.0, 0.0, False)
-        self.get_logger().info("Initial pose and lat/long origin is recorded.")
+        self.get_logger().info("Initial lat/long origin is recorded.")
 
         # set current gps location as datum in navsat_transform_node
         # datum_cmd = 'ros2 service call /datum robot_localization/srv/SetDatum \'{geo_pose: {position: {latitude: ' + str(current_gps_msg.latitude) + ', longitude: ' + str(current_gps_msg.longitude) + ', altitude: ' + str(current_gps_msg.altitude) + '}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}\''
@@ -157,31 +173,49 @@ class BSNavReceiver(Node):
 
         # self.navigator.setInitialPose(self.initial_pose)
 
-    def createPose(self, x, y, wp):
+    def createPose(self, x, y, from_current=False):
         pose = PoseStamped()
         pose.header.frame_id = 'map'
         # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
 
-        # loads in current pose
-        # rclpy.spin_once(self.navigator)
-
-        # z orientation needs to be facing away from origin
-        if wp:
-            rz = math.atan2(y, x)
-            self.get_logger().info("Waypoint orientation radians: %s" % rz)
-            qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, rz)
-            pose.pose.orientation.z = z = qz
-            pose.pose.orientation.w = w = qw
-        else:
-            pose.pose.orientation.z = z = 0.0
-            pose.pose.orientation.w = 0.0
-
+        # absolute position in map frame
         self.get_logger().info("x: %f" % x)
         self.get_logger().info("y: %f" % y)
-        self.get_logger().info("z: %f" % z)
         pose.pose.position.x = x
-        pose.pose.position.y = y
+        pose.pose.position.y = y 
+
+        # loads in current pose
+        rclpy.spin_once(self.navigator)
+
+        # orientation needs to be calculated for proper y, a x axis (east is x, north is y)
+        y = -y # reverse our previous transformation
+        temp_x = x
+        x = y
+        y = temp_x
+
+        # z orientation should be facing away from most recent waypoint
+        if from_current:
+            dx = x - self.navigator.current_pose.position.x
+            dy = y - self.navigator.current_pose.position.y
+            yaw = math.atan2(dy, dx)
+            self.get_logger().info("Orientation from current location: %s" % yaw)
+        else:
+            if self.current_waypoints:
+                last_waypoint = self.current_waypoints[-1]
+                dx = x - last_waypoint.pose.position.x
+                dy = y - last_waypoint.pose.position.y
+                yaw = math.atan2(dy, dx)
+            else:
+                dx = x - self.navigator.current_pose.position.x
+                dy = y - self.navigator.current_pose.position.y
+                yaw = math.atan2(dy, dx)
+            self.get_logger().info("Orientation from previous waypoint: %s" % yaw)
+
+        qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, yaw) # x and y are 0 because we are only rotating around z axis
+        pose.pose.orientation.z = z = qz
+        pose.pose.orientation.w = w = qw
+
         return pose
 
     def convert_to_map_coords(self, origin_lat, origin_long, goal_lat, goal_long):
@@ -197,6 +231,8 @@ class BSNavReceiver(Node):
         x = adjacent = math.cos(azimuth) * hypotenuse
         y = opposite = math.sin(azimuth) * hypotenuse
 
+        # map frame is flipped in y direction, negate y
+        y = -y
         # Convert to UTM coordinates
         return x, y
 
@@ -218,24 +254,25 @@ class BSNavReceiver(Node):
         qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
         
         return qx, qy, qz, qw
+    
+    def get_euler_from_quaternion(self, x, y, z, w):
+        """
+        Converts quaternion (w in last place) to euler roll, pitch, yaw
+        quaternion = [x, y, z, w]
+        Bellow should be replaced when porting for ROS 2 Python tf_conversions is done.
+        """
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = np.arctan2(sinr_cosp, cosr_cosp)
 
-    # def capture_photo_and_send_photo(self):
-        
-    #     photo = cv2.VideoCapture(0)
-    #     _, frame = photo.read()
-    #     self.master.mav.mavlink_data_stream_type(5)
-    #     self.master.mav.data_transmission_handshake()
-    #     msg = self.master.recv_match(type=['DATA_TRANSMISSION_HANDSHAKE')
-    #     self.master.mav.data_transmission_handshake()
+        sinp = 2 * (w * y - z * x)
+        pitch = np.arcsin(sinp)
 
-    #     image_string = base64.b64decode(frame)
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
 
-    #    print(image_string) 
-
-    #     master.mav.encapsulated_data_send()
-
-        
-
+        return roll, pitch, yaw
 
 def main(args=None):
     rclpy.init(args=args)

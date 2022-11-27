@@ -203,6 +203,12 @@ class BSNavReceiver(Node):
         # loads in current pose
         rclpy.spin_once(self.navigator)
 
+        # orientation needs to be calculated for proper y, a x axis (east is x, north is y)
+        y = -y # reverse our previous transformation
+        temp_x = x
+        x = y
+        y = temp_x
+
         # z orientation should be facing away from most recent waypoint
         if from_current:
             dx = x - self.navigator.current_pose.position.x
@@ -240,9 +246,8 @@ class BSNavReceiver(Node):
         x = adjacent = math.cos(azimuth) * hypotenuse
         y = opposite = math.sin(azimuth) * hypotenuse
 
-        # i need to test this theory but....ros believes east is our 0 heading and x axis, whereas WGS84 believes north is 0 heading and x axis
-        # so x needs to become y and y needs to become x negated
-        
+        # map frame is flipped in y direction, negate y
+        y = -y
 
         # Convert to UTM coordinates
         return x, y
