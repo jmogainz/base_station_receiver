@@ -90,7 +90,6 @@ while True:
         print("stop: stops navigation to waypoints")
         print("return: returns to home")
         print("clear: clears waypoints")
-        print("heartbeat: sends stream of heartbeat messages")
     else:
         print("\n[ERROR] Invalid command. Enter help for available commands.\n")
         
