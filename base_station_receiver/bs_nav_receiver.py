@@ -174,10 +174,6 @@ class BSNavReceiver(Node):
 
         uart_rtcm.write(rtcm_raw)
 
-
-
-        
-
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
         self.origin_long = current_gps_msg.longitude
