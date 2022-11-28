@@ -18,6 +18,7 @@ import os
 import sys
 import numpy as np
 import time
+from pyrtcm import RTCMMessage
 
 class BSNavReceiver(Node):
 
@@ -33,103 +34,107 @@ class BSNavReceiver(Node):
         self.initial_pose = PoseStamped()
         self.origin_lat = 0
         self.origin_long = 0
+        self.queue = multiprocessing.Queue()
     
     def receiveCmds(self):
+        rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(self.queue,))
+        rtcm_process.start()
+
         i = 0
         heartbeat_timer_start = time.perf_counter()
+        comms_live = True
+
         while True:
             heartbeat_timer_end = time.perf_counter()
-            if heartbeat_timer_end - heartbeat_timer_start > 60:
+            if (heartbeat_timer_end - heartbeat_timer_start > 60) and comms_live:
                 self.get_logger().info("Heartbeat not received in 60 seconds, exiting.")
                 self.navigator.cancelNav()
                 self.get_logger().info("Returning to home")
                 home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
                 self.navigator.goToPose(home_pose)
+                comms_live = False
 
             msg = self.master.recv_match(blocking=False)
 
-            valid_msg = False
             try:
                 print(f"Received message of type {msg.get_type()}")
-                valid_msg = True
             except:
-                pass
-            
-            if valid_msg:
-                if msg.get_type() != 'BAD_DATA':
-                    if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
-                        # longitude value is too large to be sent, it is split into list of digits
-                        long = list(msg.data)
-                        lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
-                        lat = list(lat_msg.data)
+                continue
 
-                        long_name = int(msg.name)
-                        lat_name = int(lat_msg.name)
+            if msg.get_type() != 'BAD_DATA':
+                if msg.get_type() == 'DEBUG_FLOAT_ARRAY':
+                    # longitude value is too large to be sent, it is split into list of digits
+                    long = list(msg.data)
+                    lat_msg = self.master.recv_match(type=['DEBUG_FLOAT_ARRAY'], blocking=True)
+                    lat = list(lat_msg.data)
 
-                        # get list values from 0 to long_name (length)
-                        long = long[0:long_name]
-                        lat = lat[0:lat_name]
+                    long_name = int(msg.name)
+                    lat_name = int(lat_msg.name)
 
-                        # convert list of digits to string
-                        long = ''.join(chr(int(e)) for e in long)
-                        lat = ''.join(chr(int(e)) for e in lat)
+                    # get list values from 0 to long_name (length)
+                    long = long[0:long_name]
+                    lat = lat[0:lat_name]
 
-                        long = float(long)
-                        lat = float(lat)
+                    # convert list of digits to string
+                    long = ''.join(chr(int(e)) for e in long)
+                    lat = ''.join(chr(int(e)) for e in lat)
 
-                        # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
-                        # x, y, zone = LLtoUTM(lat, long)
-                        if msg.array_id == 2:
-                            x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                    long = float(long)
+                    lat = float(lat)
+
+                    # x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                    # x, y, zone = LLtoUTM(lat, long)
+                    if msg.array_id == 2:
+                        x, y = self.convert_to_map_coords(self.origin_lat, self.origin_long, lat, long)
+                    else:
+                        x = long # meters
+                        y = lat
+                    
+                    ros_pose = self.createPose(x, y) 
+                    self.current_waypoints.append(deepcopy(ros_pose))
+                    self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
+                if msg.get_type() == 'NAMED_VALUE_INT':
+                    # print(msg.name)
+                    if msg.name == 'start' and msg.value == 1:
+                        self.get_logger().info("Received start navigation command")
+                        if self.current_waypoints:
+                            self.get_logger().info("All waypoints received, starting navigation")
+                            if not self.nav_running:
+                                self.nav_running = True
+                                self.navigator.followWaypoints(self.current_waypoints)
+                            else:
+                                self.get_logger().info("Navigation already launched")
+                    if msg.name == 'stop' and msg.value == 1:
+                        self.get_logger().info("Stopping navigation")
+                        self.navigator.cancelNav()
+                    if msg.name == 'clear' and msg.value == 1:
+                        if not self.nav_running:
+                            self.get_logger().info("Clearing waypoints")
+                            self.current_waypoints.clear()
                         else:
-                            x = long # meters
-                            y = lat
-                        
-                        ros_pose = self.createPose(x, y) 
-                        self.current_waypoints.append(deepcopy(ros_pose))
-                        self.get_logger().info("Received waypoints: %s" % len(self.current_waypoints))
-                    if msg.get_type() == 'NAMED_VALUE_INT':
-                        print(msg.name)
-                        if msg.name == 'start' and msg.value == 1:
-                            self.get_logger().info("Received start navigation command")
-                            if self.current_waypoints:
-                                self.get_logger().info("All waypoints received, starting navigation")
-                                if not self.nav_running:
-                                    self.nav_running = True
-                                    self.navigator.followWaypoints(self.current_waypoints)
-                                else:
-                                    self.get_logger().info("Navigation already launched")
-                        if msg.name == 'stop' and msg.value == 1:
-                            self.get_logger().info("Stopping navigation")
-                            self.navigator.cancelNav()
-                        if msg.name == 'clear' and msg.value == 1:
-                            if not self.nav_running:
-                                self.get_logger().info("Clearing waypoints")
-                                self.current_waypoints.clear()
-                            else:
-                                self.get_logger().info("Cannot clear waypoints while navigating")
-                        if msg.name == 'heading' and msg.value == 1:
-                            rclpy.spin_once(self.navigator)
-                            qx = self.navigator.current_pose.orientation.x
-                            qy = self.navigator.current_pose.orientation.y
-                            qz = self.navigator.current_pose.orientation.z
-                            qw = self.navigator.current_pose.orientation.w
-                            roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
-                            self.get_logger().info("Current heading: %s" % yaw)
-                        if msg.name == 'return' and msg.value == 1:
-                            if not self.nav_running:
-                                self.get_logger().info("Returning to home")
-                                home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
-                                self.navigator.goToPose(home_pose)
-                            else:
-                                self.get_logger().info("Cannot return home while navigating")
-                    if msg.get_type() == 'HEARTBEAT':
-                        heartbeat_timer_start = time.perf_counter()
-                    if msg.get_type() == 'GPS_RTCM_DATA':
-                        self.get_logger().info("Received RTCM data")
-                        # handle rtcm data in separate process so that it does not block
-                        rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(msg.data,))
-                        rtcm_process.start()
+                            self.get_logger().info("Cannot clear waypoints while navigating")
+                    if msg.name == 'heading' and msg.value == 1:
+                        rclpy.spin_once(self.navigator)
+                        qx = self.navigator.current_pose.orientation.x
+                        qy = self.navigator.current_pose.orientation.y
+                        qz = self.navigator.current_pose.orientation.z
+                        qw = self.navigator.current_pose.orientation.w
+                        roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
+                        self.get_logger().info("Current heading: %s" % yaw)
+                    if msg.name == 'return' and msg.value == 1:
+                        if not self.nav_running:
+                            self.get_logger().info("Returning to home")
+                            home_pose = self.createPose(0.0, 0.0, True) # create pose from current position
+                            self.navigator.goToPose(home_pose)
+                        else:
+                            self.get_logger().info("Cannot return home while navigating")
+                if msg.get_type() == 'HEARTBEAT':
+                    heartbeat_timer_start = time.perf_counter()
+                    comms_live = True
+                    # print("Heartbeat received")
+                if msg.get_type() == 'GPS_RTCM_DATA':
+                    # handle rtcm data in separate process so that it does not block
+                    self.queue.put(msg)
 
             if not self.navigator.isNavComplete() and self.nav_running:
                 i = i + 1
@@ -152,15 +157,26 @@ class BSNavReceiver(Node):
                     print('Waypoint navigation failed...')
                     self.nav_running = False
 
-    def handle_rtcm_data(rtcm_msg):
+    def handle_rtcm_data(self, queue):
         # send rtcm_msg over uart to /dev/ttyUSB1
-        uart_rtcm = serial.Serial('/dev/ttyUSB1', 38400)
+        uart_rtcm = serial.Serial('/dev/ttyTHS1', 38400)
         # set configuration
         uart_rtcm.bytesize = serial.EIGHTBITS
         uart_rtcm.parity = serial.PARITY_NONE
         uart_rtcm.stopbits = serial.STOPBITS_ONE
-        uart_rtcm.write(rtcm_msg)
-        uart_rtcm.close()
+
+        # process a message and store data
+        rtcm_msg = queue.get()
+        rtcm_data = rtcm_msg.data
+        rtcm_raw = bytes(rtcm_data[0:rtcm_msg.len])
+        parsed = RTCMReader.parse(rtcm_raw)
+        print(parsed)
+
+        uart_rtcm.write(rtcm_raw)
+
+
+
+        
 
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude
