@@ -3,6 +3,8 @@ User interface for sending messages to UGV
 """
 from pymavlink import mavutil
 import time
+from pyrtcm import RTCMReader
+from serial import Serial
 import os
 from multiprocessing import Process
 
@@ -15,8 +17,20 @@ def heartbeat():
          mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
         time.sleep(1)
 
-p = Process(target=heartbeat)
-p.start()
+def sendRTCM():
+    stream = Serial("/dev/ttyACM0", baudrate=9600, timeout=3)
+    while True:
+        reader = RTCMReader(stream)
+        (raw_data, parsed_data) = reader.read()
+        if parsed_data:
+            raw_data = raw_data + b'\x00' * (180 - len(raw_data))
+            print(parsed_data)
+            master.mav.gps_rtcm_data_send(0, len(raw_data), raw_data)
+
+rtcm_proc_ = Process(target=sendRTCM)
+rtcm_proc_.start()
+hb_proc_ = Process(target=heartbeat)
+hb_proc_.start()
 
 while True:
     cmd = input("Enter UGV command >  ")
