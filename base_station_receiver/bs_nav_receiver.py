@@ -18,7 +18,7 @@ import os
 import sys
 import numpy as np
 import time
-from pyrtcm import RTCMMessage
+from pyrtcm import RTCMReader
 
 class BSNavReceiver(Node):
 
@@ -158,21 +158,22 @@ class BSNavReceiver(Node):
                     self.nav_running = False
 
     def handle_rtcm_data(self, queue):
-        # send rtcm_msg over uart to /dev/ttyUSB1
-        uart_rtcm = serial.Serial('/dev/ttyTHS1', 38400)
-        # set configuration
-        uart_rtcm.bytesize = serial.EIGHTBITS
-        uart_rtcm.parity = serial.PARITY_NONE
-        uart_rtcm.stopbits = serial.STOPBITS_ONE
+        while True:
+            # send rtcm_msg over uart to /dev/ttyUSB1
+            uart_rtcm = serial.Serial('/dev/ttyTHS1', 38400)
+            # set configuration
+            uart_rtcm.bytesize = serial.EIGHTBITS
+            uart_rtcm.parity = serial.PARITY_NONE
+            uart_rtcm.stopbits = serial.STOPBITS_ONE
 
-        # process a message and store data
-        rtcm_msg = queue.get()
-        rtcm_data = rtcm_msg.data
-        rtcm_raw = bytes(rtcm_data[0:rtcm_msg.len])
-        parsed = RTCMReader.parse(rtcm_raw)
-        print(parsed)
+            # process a message and store data
+            rtcm_msg = queue.get()
+            rtcm_data = rtcm_msg.data
+            rtcm_raw = bytes(rtcm_data[0:rtcm_msg.len])
+            parsed = RTCMReader.parse(rtcm_raw)
+            print(parsed)
 
-        uart_rtcm.write(rtcm_raw)
+            uart_rtcm.write(rtcm_raw)
 
     def gps_callback(self, current_gps_msg):
         self.origin_lat = current_gps_msg.latitude

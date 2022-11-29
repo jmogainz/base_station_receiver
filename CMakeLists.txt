@@ -46,7 +46,8 @@ install(PROGRAMS
   base_station_receiver/navsat_conversions.py
   base_station_receiver/bs_nav_receiver_sim.py
   base_station_receiver/bs_nav_receiver.py
-  scripts/base_station.py
+  base_station/bs.py
+  base_station/bs_sim.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
