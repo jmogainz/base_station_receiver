@@ -189,7 +189,7 @@ class BSNavReceiver(Node):
 
     def createPose(self, x, y, from_current=False):
         pose = PoseStamped()
-        # pose.header.frame_id = 'map'
+        pose.header.frame_id = 'map'
         # pose.header.frame_id = 'utm'
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
 
