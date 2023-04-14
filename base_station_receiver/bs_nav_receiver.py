@@ -11,6 +11,7 @@ from geographiclib.geodesic import Geodesic
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import NavSatFix
+from diagnostic_msgs.msg import DiagnosticStatus
 import math
 import serial
 from navsat_conversions import LLtoUTM, UTMtoLL
@@ -26,15 +27,25 @@ class BSNavReceiver(Node):
         super().__init__('bs_nav_receiver')
 
         self.gps_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_callback, 1)
+        self.imu_calib_sub = self.create_subscription(DiagnosticStatus, '/imu/diagnostics', self.imu_calib_callback, 1)
 
         self.master = mavutil.mavlink_connection('/dev/ttyUSB0', baud=57600)
         self.current_waypoints = []
         self.navigator = BasicNavigator()
         self.nav_running = False
+
         self.initial_pose = PoseStamped()
         self.origin_lat = 0
         self.origin_long = 0
+        self.current_lat = 0
+        self.current_long = 0
+        
         self.queue = multiprocessing.Queue()
+        
+        self.imu_sys_cal = 0
+        self.imu_gyro_cal = 0
+        self.imu_accel_cal = 0
+        self.imu_mag_cal = 0
     
     def receiveCmds(self):
         rtcm_process = multiprocessing.Process(target=self.handle_rtcm_data, args=(self.queue,))
@@ -121,6 +132,16 @@ class BSNavReceiver(Node):
                         qw = self.navigator.current_pose.orientation.w
                         roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
                         self.get_logger().info("Current heading: %s" % yaw)
+                    if msg.name == "location" and msg.value == 1:
+                        rclpy.spin_once(self)
+                        self.master.mav.named_value_int_send(int(time.time()), b"lat", self.current_lat)
+                        self.master.mav.named_value_int_send(int(time.time()), b"long", self.current_long)
+                    if msg.name == "calibration" and msg.value == 1:
+                        rclpy.spin_once(self)
+                        self.master.mav.named_value_int_send(int(time.time()), b"imu_sys", self.imu_sys_cal)
+                        self.master.mav.named_value_int_send(int(time.time()), b"imu_gyro", self.imu_gyro_cal)
+                        self.master.mav.named_value_int_send(int(time.time()), b"imu_accel", self.imu_accel_cal)
+                        self.master.mav.named_value_int_send(int(time.time()), b"imu_mag", self.imu_mag_cal)
                     if msg.name == 'return' and msg.value == 1:
                         if not self.nav_running:
                             self.get_logger().info("Returning to home")
@@ -176,15 +197,26 @@ class BSNavReceiver(Node):
             uart_rtcm.write(rtcm_raw)
 
     def gps_callback(self, current_gps_msg):
-        self.origin_lat = current_gps_msg.latitude
-        self.origin_long = current_gps_msg.longitude
-        self.get_logger().info("Initial lat/long origin is recorded.")
+        # set origin if not set
+        if not self.origin_lat and not self.origin_long:
+            self.origin_lat = current_gps_msg.latitude
+            self.origin_long = current_gps_msg.longitude
+            self.get_logger().info("Initial lat/long origin is recorded.")
+        else:
+            self.current_lat = current_gps_msg.latitude
+            self.current_long = current_gps_msg.longitude
 
         # set current gps location as datum in navsat_transform_node
         # datum_cmd = 'ros2 service call /datum robot_localization/srv/SetDatum \'{geo_pose: {position: {latitude: ' + str(current_gps_msg.latitude) + ', longitude: ' + str(current_gps_msg.longitude) + ', altitude: ' + str(current_gps_msg.altitude) + '}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}\''
         # os.system(datum_cmd)
 
         # self.navigator.setInitialPose(self.initial_pose)
+        
+    def imu_calib_callback(self, imu_diagnostics_msg):
+        self.imu_sys_cal = imu_diagnostics_msg.values[1].value
+        self.imu_gyro_cal = imu_diagnostics_msg.values[2].value
+        self.imu_accel_cal = imu_diagnostics_msg.values[3].value
+        self.imu_mag_cal = imu_diagnostics_msg.values[4].value
 
     def createPose(self, x, y, from_current=False):
         pose = PoseStamped()

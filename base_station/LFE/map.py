@@ -188,6 +188,10 @@ while True:
         master.mav.named_value_int_send(int(time.time()), b"return", 1)
     elif cmd == "heading":
         master.mav.named_value_int_send(int(time.time()), b"heading", 1)
+    elif cmd == "location":
+        master.mav.named_value_int_send(int(time.time()), b"location", 1)
+    elif cmd == "calibration":
+        master.mav.named_value_int_send(int(time.time()), b"calibration", 1)
         
     elif cmd == "help":
         print("\nwaypoints: prompts waypoint file input")
