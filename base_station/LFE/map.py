@@ -123,13 +123,13 @@ def receiveMessages():
         if msg.get_type() != 'BAD_DATA':
             if msg.get_type() == 'NAMED_VALUE_INT':
                 if msg.name == "lat":
-                    print(f"Latitude: {msg.value}\n")
+                    print(f"\nLatitude: {msg.value}\n")
                 if msg.name == "long":
                     print(f"Longitude: {msg.value}\n")
                 if msg.name == "heading":
                     print(f"Heading: {msg.value}\n")
                 if msg.name == "imu_sys":
-                    print(f"IMU Sys Calibration Status: {msg.value}\n")
+                    print(f"\nIMU Sys Calibration Status: {msg.value}\n")
                 if msg.name == "imu_gyro":
                     print(f"IMU Gyro Calibration Status: {msg.value}\n")
                 if msg.name == "imu_accel":
