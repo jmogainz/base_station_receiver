@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>My Map</title>
+	<!-- Load the required Dash libraries -->
+	<script src="https://cdn.plot.ly/plotly-2.3.0.min.js"></script>
+	<script src="https://cdn.plot.ly/dash-0.17.7.min.js"></script>
+</head>
+<body>
+	<!-- Define the layout of the Dash app -->
+	<div id="app-container"></div>
+	<script>
+		// Import the required Python libraries
+		var dash = Dash.create();
+		var html = Dash.html;
+		var dl = Dash.dl;
+		var Input = Dash.Input;
+		var Output = Dash.Output;
+		var ALL = Dash.ALL;
+
+		// Define the layout of the Dash app
+		var layout = html.Div({
+			children: [
+				html.H1("L.O.T.U.S. Dashboard"),
+				dl.Map({
+					children: [dl.TileLayer(), dl.LayerGroup({id: "layer"})],
+					id: "map",
+					style: {width: "1000px", height: "50vh", margin: "auto", display: "block"},
+					center: [33.4526221, -88.7872477],
+					zoom: 100
+				})
+			]
+		});
+
+		// Initialize the app
+		var app = dash.app({
+			name: "my-map",
+			layout: layout
+		});
+
+		// Store click lat longs
+		app.callback(Output("layer", "children"), [Input("map", "click_lat_lng")], function(click_lat_lng) {
+			var waypoints = [];
+
+			var location = click_lat_lng;
+			waypoints.push(location);
+			console.log(location);
+
+			var markers = waypoints.map(function(waypoint) {
+				return dl.Marker({position: waypoint, children: dl.Tooltip("({:.3f}, {:.3f})".format(waypoint[0], waypoint[1]))});
+			});
+
+			if (waypoints.length > 1) {
+				var line = dl.Polyline({positions: waypoints, color: "red"});
+				return [dl.LayerGroup(markers.concat([line]))];
+			} else {
+				return [dl.LayerGroup(markers)];
+			}
+		});
+
+		// Mount the app
+		app.mount("#app-container");
+	</script>
+</body>
+</html>
