@@ -116,7 +116,7 @@ def receiveMessages():
         msg = master.recv_match(blocking=False)
         
         try:
-            print(f"Received message of type {msg.get_type()}")
+            type = msg.get_type()
         except:
             continue
         
@@ -124,8 +124,10 @@ def receiveMessages():
             if msg.get_type() == 'NAMED_VALUE_INT':
                 if msg.name == "lat":
                     print(f"Latitude: {msg.value}\n")
-                if msg.name == "lon":
+                if msg.name == "long":
                     print(f"Longitude: {msg.value}\n")
+                if msg.name == "heading":
+                    print(f"Heading: {msg.value}\n")
                 if msg.name == "imu_sys":
                     print(f"IMU Sys Calibration Status: {msg.value}\n")
                 if msg.name == "imu_gyro":
