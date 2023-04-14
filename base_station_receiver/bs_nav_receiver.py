@@ -132,6 +132,7 @@ class BSNavReceiver(Node):
                         qw = self.navigator.current_pose.orientation.w
                         roll, pitch, yaw = self.get_euler_from_quaternion(qx, qy, qz, qw)
                         self.get_logger().info("Current heading: %s" % yaw)
+                        self.master.mav.named_value_int_send(int(time.time()), b"heading", yaw)
                     if msg.name == "location" and msg.value == 1:
                         rclpy.spin_once(self)
                         self.master.mav.named_value_int_send(int(time.time()), b"lat", self.current_lat)

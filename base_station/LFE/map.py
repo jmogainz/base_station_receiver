@@ -110,13 +110,41 @@ def sendRTCM():
             
 def openBrowser():
     webbrowser.open_new(f"http://localhost:8050/")
+    
+def receiveMessages():
+    while True:
+        msg = master.recv_match(blocking=False)
+        
+        try:
+            print(f"Received message of type {msg.get_type()}")
+        except:
+            continue
+        
+        if msg.get_type() != 'BAD_DATA':
+            if msg.get_type() == 'NAMED_VALUE_INT':
+                if msg.name == "lat":
+                    print(f"Latitude: {msg.value}\n")
+                if msg.name == "lon":
+                    print(f"Longitude: {msg.value}\n")
+                if msg.name == "imu_sys":
+                    print(f"IMU Sys Calibration Status: {msg.value}\n")
+                if msg.name == "imu_gyro":
+                    print(f"IMU Gyro Calibration Status: {msg.value}\n")
+                if msg.name == "imu_accel":
+                    print(f"IMU Accel Calibration Status: {msg.value}\n")
+                if msg.name == "imu_mag":
+                    print(f"IMU Mag Calibration Status: {msg.value}\n")
             
 # rtcm_proc_ = Process(target=sendRTCM)
 # rtcm_proc_.start()
 hb_proc_ = Process(target=heartbeat)
 hb_proc_.start()
+receive_proc_ = Process(target=receiveMessages)
+receive_proc_.start()
 
 while True:
+    msg_received = False
+    
     cmd = input("Enter UGV command >  ")
     
     if cmd == "waypoints":
