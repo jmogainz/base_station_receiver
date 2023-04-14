@@ -226,7 +226,9 @@ while True:
         print("start: starts navigation to waypoints")
         print("stop: stops navigation to waypoints")
         print("return: returns to home")
-        print("clear: clears waypoints")
+        print("heading: returns the car's current heading")
+        print("location: returns the car's current location")
+        print("calibaration: returns the calibration")
     else:
         print("\n[ERROR] Invalid command. Enter help for available commands.\n")
         
