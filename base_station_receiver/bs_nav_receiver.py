@@ -137,8 +137,9 @@ class BSNavReceiver(Node):
                         rclpy.spin_once(self)
                         self.master.mav.named_value_int_send(int(time.time()), b"lat", self.current_lat)
                         self.master.mav.named_value_int_send(int(time.time()), b"long", self.current_long)
-                    if msg.name == "calibration" and msg.value == 1:
+                    if msg.name == "cal" and msg.value == 1:
                         rclpy.spin_once(self)
+                        print("Sending calibration values")
                         self.master.mav.named_value_int_send(int(time.time()), b"imu_sys", self.imu_sys_cal)
                         self.master.mav.named_value_int_send(int(time.time()), b"imu_gyro", self.imu_gyro_cal)
                         self.master.mav.named_value_int_send(int(time.time()), b"imu_accel", self.imu_accel_cal)
