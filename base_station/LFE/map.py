@@ -104,9 +104,10 @@ def sendRTCM():
         reader = RTCMReader(stream)
         (raw_data, parsed_data) = reader.read()
         if parsed_data:
-            raw_data = raw_data + b'\x00' * (180 - len(raw_data))
+            raw_data_len = len(raw_data)
+            raw_data = raw_data + b'\x00' * (180 - raw_data_len)
             print(parsed_data)
-            master.mav.gps_rtcm_data_send(0, len(raw_data), raw_data)
+            master.mav.gps_rtcm_data_send(0, raw_data_len, raw_data)
             
 def openBrowser():
     webbrowser.open_new(f"http://localhost:8050/")

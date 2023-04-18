@@ -44,7 +44,6 @@ while True:
         if msg.get_type() == 'GPS_RTCM_DATA':
             # handle rtcm data in separate process so that it does not block
             queue.put(msg)
-            break
-
+            # break
 
 
