@@ -137,8 +137,8 @@ def receiveMessages():
                 if msg.name == "imu_mag":
                     print(f"IMU Mag Calibration Status: {msg.value}\n")
             
-# rtcm_proc_ = Process(target=sendRTCM)
-# rtcm_proc_.start()
+rtcm_proc_ = Process(target=sendRTCM)
+rtcm_proc_.start()
 hb_proc_ = Process(target=heartbeat)
 hb_proc_.start()
 receive_proc_ = Process(target=receiveMessages)
