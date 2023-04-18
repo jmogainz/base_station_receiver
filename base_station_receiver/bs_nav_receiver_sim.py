@@ -203,30 +203,30 @@ class BSNavReceiver(Node):
         rclpy.spin_once(self.navigator)
 
         # orientation needs to be calculated for proper y, a x axis (east is x, north is y)
-        y = -y # reverse our previous transformation
-        temp_x = x
-        x = y
-        y = temp_x
+        # y = -y # reverse our previous transformation
+        # temp_x = x
+        # x = y
+        # y = temp_x
 
         # z orientation should be facing away from most recent waypoint
-        if from_current:
-            dx = x - self.navigator.current_pose.position.x
-            dy = y - self.navigator.current_pose.position.y
-            yaw = math.atan2(dy, dx)
-            self.get_logger().info("Orientation from current location: %s" % yaw)
-        else:
-            if self.current_waypoints:
-                last_waypoint = self.current_waypoints[-1]
-                dx = x - last_waypoint.pose.position.x
-                dy = y - last_waypoint.pose.position.y
-                yaw = math.atan2(dy, dx)
-            else:
-                dx = x - self.navigator.current_pose.position.x
-                dy = y - self.navigator.current_pose.position.y
-                yaw = math.atan2(dy, dx)
-            self.get_logger().info("Orientation from previous waypoint: %s" % yaw)
+        # if from_current:
+        #     dx = x - self.navigator.current_pose.position.x
+        #     dy = y - self.navigator.current_pose.position.y
+        #     yaw = math.atan2(dy, dx)
+        #     self.get_logger().info("Orientation from current location: %s" % yaw)
+        # else:
+        #     if self.current_waypoints:
+        #         last_waypoint = self.current_waypoints[-1]
+        #         dx = x - last_waypoint.pose.position.x
+        #         dy = y - last_waypoint.pose.position.y
+        #         yaw = math.atan2(dy, dx)
+        #     else:
+        #         dx = x - self.navigator.current_pose.position.x
+        #         dy = y - self.navigator.current_pose.position.y
+        #         yaw = math.atan2(dy, dx)
+        #     self.get_logger().info("Orientation from previous waypoint: %s" % yaw)
 
-        qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, yaw) # x and y are 0 because we are only rotating around z axis
+        qx, qy, qz, qw = self.get_quaternion_from_euler(0, 0, 0) # x and y are 0 because we are only rotating around z axis
         pose.pose.orientation.z = z = qz
         pose.pose.orientation.w = w = qw
 
