@@ -161,6 +161,9 @@ while True:
         # clear waypoints vector
         waypoints.clear()
         
+        dash_thread.start()
+        webbrowser.open('http://localhost:8050')
+        
     elif cmd == "start":
         # type_val = 0
         # while True:
