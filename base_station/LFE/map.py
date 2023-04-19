@@ -137,14 +137,15 @@ def receiveMessages():
                 if msg.name == "imu_mag":
                     print(f"IMU Mag Calibration Status: {msg.value}\n")
             
+dash_thread = Process(target=app.run())
+dash_thread.start()
+webbrowser.open('http://localhost:8050')
 rtcm_proc_ = Process(target=sendRTCM)
 rtcm_proc_.start()
 hb_proc_ = Process(target=heartbeat)
 hb_proc_.start()
 receive_proc_ = Process(target=receiveMessages)
 receive_proc_.start()
-dash_thread = Process(target=app.run())
-dash_thread.start()
 
 def signal_handler(sig, frame):
     # kill only dash thread
@@ -157,14 +158,7 @@ while True:
     
     cmd = input("Enter UGV command >  ")
     
-    if cmd == "waypoints":
-        # clear waypoints vector
-        waypoints.clear()
-        
-        dash_thread.start()
-        webbrowser.open('http://localhost:8050')
-        
-    elif cmd == "start":
+    if cmd == "start":
         # type_val = 0
         # while True:
         #     type = input("Enter waypoint type >  ")
