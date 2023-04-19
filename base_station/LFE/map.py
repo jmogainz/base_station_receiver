@@ -88,6 +88,7 @@ from pyrtcm import RTCMReader
 from serial import Serial
 import os
 from multiprocessing import Process
+import signal
 
 os.putenv("MAVLINK20","1")
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
@@ -109,8 +110,6 @@ def sendRTCM():
             # print(parsed_data)
             master.mav.gps_rtcm_data_send(0, raw_data_len, raw_data)
             
-def openBrowser():
-    webbrowser.open_new(f"http://localhost:8050/")
     
 def receiveMessages():
     while True:
@@ -144,6 +143,14 @@ hb_proc_ = Process(target=heartbeat)
 hb_proc_.start()
 receive_proc_ = Process(target=receiveMessages)
 receive_proc_.start()
+dash_thread = Process(target=app.run())
+dash_thread.start()
+
+def signal_handler(sig, frame):
+    # kill only dash thread
+    dash_thread.terminate()
+
+signal.signal(signal.SIGINT, signal_handler)
 
 while True:
     msg_received = False
@@ -154,11 +161,6 @@ while True:
         # clear waypoints vector
         waypoints.clear()
         
-        # start web app
-        Timer(2, openBrowser).start()
-        dash_thread = Process(target=app.run())
-        dash_thread.start()
-
     elif cmd == "start":
         # type_val = 0
         # while True:
