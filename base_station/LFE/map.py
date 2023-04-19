@@ -109,7 +109,9 @@ def sendRTCM():
             raw_data = raw_data + b'\x00' * (180 - raw_data_len)
             # print(parsed_data)
             master.mav.gps_rtcm_data_send(0, raw_data_len, raw_data)
-            
+
+def openBrowser():
+    webbrowser.open_new('http://localhost:8050/')
     
 def receiveMessages():
     while True:
@@ -136,10 +138,10 @@ def receiveMessages():
                     print(f"IMU Accel Calibration Status: {msg.value}\n")
                 if msg.name == "imu_mag":
                     print(f"IMU Mag Calibration Status: {msg.value}\n")
-            
+
+Timer(2, openBrowser).start()
 dash_thread = Process(target=app.run())
 dash_thread.start()
-webbrowser.open('http://localhost:8050')
 rtcm_proc_ = Process(target=sendRTCM)
 rtcm_proc_.start()
 hb_proc_ = Process(target=heartbeat)
