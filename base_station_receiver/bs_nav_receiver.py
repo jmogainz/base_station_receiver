@@ -181,21 +181,18 @@ class BSNavReceiver(Node):
                     self.nav_running = False
 
     def handle_rtcm_data(self, queue):
+        uart_rtcm = serial.Serial('/dev/ttyTHS1', 38400)
+        uart_rtcm.bytesize = serial.EIGHTBITS
+        uart_rtcm.parity = serial.PARITY_NONE
+        uart_rtcm.stopbits = serial.STOPBITS_ONE
+        time.sleep(1) # wait for serial port to open
         while True:
-            # send rtcm_msg over uart to /dev/ttyUSB1
-            uart_rtcm = serial.Serial('/dev/ttyTHS1', 38400)
-            # set configuration
-            uart_rtcm.bytesize = serial.EIGHTBITS
-            uart_rtcm.parity = serial.PARITY_NONE
-            uart_rtcm.stopbits = serial.STOPBITS_ONE
-
-            # process a message and store data
             rtcm_msg = queue.get()
             rtcm_data = rtcm_msg.data
             rtcm_raw = bytes(rtcm_data[0:rtcm_msg.len])
             parsed = RTCMReader.parse(rtcm_raw)
             print(parsed)
-
+            print(len(rtcm_raw), "\n")
             uart_rtcm.write(rtcm_raw)
 
     def gps_callback(self, current_gps_msg):
