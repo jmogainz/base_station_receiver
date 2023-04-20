@@ -149,12 +149,6 @@ hb_proc_.start()
 receive_proc_ = Process(target=receiveMessages)
 receive_proc_.start()
 
-def signal_handler(sig, frame):
-    # kill only dash thread
-    dash_thread.terminate()
-
-signal.signal(signal.SIGINT, signal_handler)
-
 while True:
     msg_received = False
     
