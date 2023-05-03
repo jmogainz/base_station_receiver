@@ -191,8 +191,8 @@ class BSNavReceiver(Node):
             rtcm_data = rtcm_msg.data
             rtcm_raw = bytes(rtcm_data[0:rtcm_msg.len])
             parsed = RTCMReader.parse(rtcm_raw)
-            print(parsed)
-            print(len(rtcm_raw), "\n")
+            # print(parsed)
+            # print(len(rtcm_raw), "\n")
             uart_rtcm.write(rtcm_raw)
 
     def gps_callback(self, current_gps_msg):
