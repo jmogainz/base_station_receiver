@@ -16,11 +16,7 @@ from wsgiref.simple_server import make_server
 
 # Define valid usernames and passwords
 VALID_USERNAME_PASSWORD_PAIRS = {
-    'justin': 'justin',
-    'jacob': 'jacob',
-    'scott': 'scott',
-    'patrick': 'patrick',
-    'harrison' : 'harrison'
+    'lotus': 'lotus'
 }
 
 # Define app and server
@@ -143,14 +139,18 @@ Timer(2, openBrowser).start()
 dash_thread = Process(target=app.run())
 dash_thread.start()
 rtcm_proc_ = Process(target=sendRTCM)
-rtcm_proc_.start()
 hb_proc_ = Process(target=heartbeat)
-hb_proc_.start()
 receive_proc_ = Process(target=receiveMessages)
-receive_proc_.start()
 
 while True:
     msg_received = False
+    # start the processes in case killed by ctrl-c
+    try:
+        rtcm_proc_.start()
+        hb_proc_.start()
+        receive_proc_.start()
+    except:
+        pass
     
     cmd = input("Enter UGV command >  ")
     
