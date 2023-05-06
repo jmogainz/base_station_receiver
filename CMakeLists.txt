@@ -32,11 +32,6 @@ find_package(action_msgs REQUIRED)
 # Include cpp "include" directory
 include_directories(include)
 
-install(
-  DIRECTORY base_station_receiver launch scripts
-  DESTINATION share/${PROJECT_NAME}
-)
-
 # Install Python modules for import
 ament_python_install_package(${PROJECT_NAME})
 
